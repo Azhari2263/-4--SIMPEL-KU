@@ -1,0 +1,2919 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Sistem Monitoring Pelayanan, Keamanan & Kebersihan Umum (SIMPEL-KU)</title>
+  
+  <!-- CDN Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a'
+            },
+            accent: {
+              500: '#f97316',
+              600: '#ea580c',
+              700: '#c2410c'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    /* Navigation Item Styling */
+    .nav-item {
+      color: #475569;
+      transition: all 0.2s ease;
+    }
+    .nav-item:hover {
+      background-color: #f8fafc;
+      color: #1e40af;
+    }
+    .nav-item.active {
+      background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+      color: #ffffff;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+    }
+
+    /* Period Tab Switcher */
+    .period-tab {
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .period-tab.active {
+      background-color: #ffffff;
+      color: #1e40af;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+      font-weight: 700;
+    }
+
+    /* Checkbox & Cell Interactive Styling */
+    .check-cell {
+      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+    }
+    .check-cell:not(.locked):not(.disabled):hover {
+      transform: scale(1.1);
+    }
+    .check-cell:not(.locked):not(.disabled):active {
+      transform: scale(0.92);
+    }
+
+    .badge-ruang {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #dbeafe;
+    }
+
+    /* Hide scrollbars for clean slider elements */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen">
+
+  <!-- Toast Notifikasi -->
+  <div id="toastNotification" class="fixed top-5 right-5 z-50 transform translate-x-full transition-transform duration-300 ease-out max-w-sm w-full">
+    <div class="flex items-center p-4 rounded-2xl shadow-xl border border-slate-200 bg-white text-slate-800 space-x-3">
+      <div id="toastIcon" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-white bg-blue-600">
+        <i class="fa-solid fa-info"></i>
+      </div>
+      <div class="flex-1 text-sm font-medium" id="toastMessage">Pesan notifikasi</div>
+      <button onclick="closeToast()" class="text-slate-400 hover:text-slate-600">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="globalLoader" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center hidden">
+    <div class="bg-white px-8 py-6 rounded-2xl shadow-2xl flex flex-col items-center space-y-4 max-w-xs text-center">
+      <div class="relative flex items-center justify-center">
+        <div class="w-12 h-12 border-4 border-brand-100 border-t-brand-600 rounded-full animate-spin"></div>
+        <i class="fa-solid fa-broom text-brand-600 absolute text-sm"></i>
+      </div>
+      <div>
+        <h4 class="font-bold text-slate-800 text-sm">Memproses Data</h4>
+        <p class="text-xs text-slate-500 mt-0.5">Sinkronisasi data monitoring...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= HALAMAN LOGIN ================= -->
+  <section id="loginPage" class="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-gradient-to-br from-slate-100 via-blue-50 to-orange-50">
+    <div class="absolute -top-32 -left-32 w-80 h-80 bg-brand-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-32 -right-32 w-80 h-80 bg-accent-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="w-full max-w-md relative z-10">
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-700 via-brand-600 to-accent-500 text-white shadow-xl shadow-brand-500/25 mb-4">
+          <i class="fa-solid fa-clipboard-check text-2xl"></i>
+        </div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">SIMPEL-KU</h1>
+        <p class="text-xs sm:text-sm font-medium text-slate-500 mt-1">Sistem Monitoring Pelayanan, Keamanan, dan Kebersihan Umum</p>
+      </div>
+
+      <div class="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl shadow-slate-200/70 border border-slate-200/80 p-6 sm:p-8">
+        <div class="mb-6">
+          <h2 class="text-lg font-bold text-slate-800">Masuk ke Akun</h2>
+          <p class="text-xs text-slate-500 mt-0.5">Gunakan kredensial yang terdaftar pada sistem</p>
+        </div>
+
+        <form id="formLogin" onsubmit="handleLogin(event)" class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Username</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <i class="fa-solid fa-user text-sm"></i>
+              </span>
+              <input type="text" id="loginUsername" required placeholder="Contoh: slamet, rania, atau eddy" 
+                class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all text-slate-800 font-medium">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">Password</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <i class="fa-solid fa-lock text-sm"></i>
+              </span>
+              <input type="password" id="loginPassword" required placeholder="••••••••" 
+                class="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all text-slate-800 font-medium">
+              <button type="button" onclick="togglePasswordVisibility()" class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600">
+                <i id="eyeIcon" class="fa-solid fa-eye text-sm"></i>
+              </button>
+            </div>
+          </div>
+
+          <div id="loginErrorMessage" class="hidden text-xs text-rose-600 bg-rose-50 border border-rose-200 p-3 rounded-xl flex items-center space-x-2">
+            <i class="fa-solid fa-triangle-exclamation flex-shrink-0"></i>
+            <span id="loginErrorText">Kredensial tidak valid.</span>
+          </div>
+
+          <button type="submit" id="btnLoginSubmit"
+            class="w-full py-3 px-4 bg-gradient-to-r from-brand-700 via-brand-600 to-accent-600 hover:from-brand-800 hover:to-accent-700 text-white font-semibold text-sm rounded-xl shadow-lg shadow-brand-600/25 transition-all duration-200 flex items-center justify-center space-x-2 transform active:scale-98">
+            <span>Masuk ke Dashboard</span>
+            <i class="fa-solid fa-arrow-right text-xs"></i>
+          </button>
+        </form>
+
+        <div class="mt-6 pt-5 border-t border-slate-100 text-center text-xs text-slate-500">
+          <p class="flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-shield-halved text-emerald-600"></i>
+            <span>Sesi aman terisolasi per akun pegawai</span>
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= APLIKASI UTAMA ================= -->
+  <div id="mainApp" class="hidden min-h-screen flex flex-col md:flex-row bg-slate-50 overflow-hidden">
+
+    <!-- Mobile Drawer Backdrop -->
+    <div id="sidebarBackdrop" onclick="toggleMobileSidebar()" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-30 md:hidden hidden transition-opacity"></div>
+
+    <!-- Sidebar Navigation Drawer (Navigasi Mobile & Desktop) -->
+    <aside id="appSidebar" class="fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-slate-200 flex flex-col justify-between transform -translate-x-full md:translate-x-0 transition-all duration-300 ease-in-out overflow-hidden">
+      <div>
+        <!-- Header Sidebar: Logo & Tombol Toggle Rapi -->
+        <div class="h-16 flex items-center px-3.5 border-b border-slate-100 justify-between overflow-hidden">
+          <div class="flex items-center space-x-3 overflow-hidden min-w-0">
+            <!-- App Logo Badge Icon -->
+            <button onclick="toggleSidebarCollapse()" title="Klik untuk Ciutkan / Perluas Navigasi" class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-700 via-brand-600 to-accent-500 hover:from-brand-800 hover:to-accent-600 flex items-center justify-center text-white shadow-md shadow-brand-600/20 flex-shrink-0 transition-all active:scale-95 mx-auto">
+              <i id="sidebarHeaderLogoIcon" class="fa-solid fa-clipboard-check text-sm"></i>
+            </button>
+            <div class="sidebar-label transition-opacity duration-200 overflow-hidden">
+              <h1 class="text-sm font-bold text-slate-900 tracking-tight truncate">SIMPEL-KU</h1>
+              <p class="text-[10px] text-slate-400 font-medium truncate">Monitoring Terpadu</p>
+            </div>
+          </div>
+          <!-- Tombol Collapse Sidebar Desktop (Chevron Kiri) -->
+          <button onclick="toggleSidebarCollapse()" id="sidebarCollapseBtn" title="Ciutkan Navigasi" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-700 hidden md:flex items-center justify-center transition-all flex-shrink-0">
+            <i id="sidebarInnerToggleIcon" class="fa-solid fa-chevron-left text-xs"></i>
+          </button>
+          <!-- Tombol Tutup Sidebar Mobile -->
+          <button onclick="toggleMobileSidebar()" class="md:hidden text-slate-400 hover:text-slate-600 p-1 flex-shrink-0">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+
+        <!-- Profil Singkat Sidebar -->
+        <div id="sidebarProfileBox" class="p-3 mx-2 my-3 bg-slate-50 rounded-xl border border-slate-200/70 flex items-center space-x-3 overflow-hidden">
+          <div class="w-9 h-9 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-xs flex-shrink-0 mx-auto" id="sidebarAvatar">
+            U
+          </div>
+          <div class="sidebar-label flex-1 min-w-0 transition-opacity duration-200">
+            <p class="text-xs font-semibold text-slate-900 truncate" id="sidebarUserName">Nama Pegawai</p>
+            <p class="text-[10px] text-slate-500 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0"></span>
+              <span class="truncate">Terverifikasi</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- Menu Navigasi -->
+        <nav class="px-2 space-y-1" id="sidebarNav">
+          <button onclick="navigateTo('dashboard')" id="nav-dashboard" title="Dashboard" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-semibold active overflow-hidden">
+            <i class="fa-solid fa-chart-pie w-5 text-center flex-shrink-0"></i>
+            <span class="sidebar-label transition-opacity duration-200 truncate">Dashboard</span>
+          </button>
+          <button onclick="navigateTo('kebersihan')" id="nav-kebersihan" title="Monitoring Kebersihan" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-semibold overflow-hidden">
+            <i class="fa-solid fa-sparkles w-5 text-center text-accent-500 flex-shrink-0"></i>
+            <span class="sidebar-label transition-opacity duration-200 truncate">Monitoring Kebersihan</span>
+          </button>
+          <button onclick="navigateTo('pelayanan')" id="nav-pelayanan" title="Monitoring Pelayanan" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-semibold overflow-hidden">
+            <i class="fa-solid fa-hand-holding-heart w-5 text-center text-brand-500 flex-shrink-0"></i>
+            <span class="sidebar-label transition-opacity duration-200 truncate">Monitoring Pelayanan</span>
+          </button>
+          <button onclick="navigateTo('keamanan')" id="nav-keamanan" title="Monitoring Keamanan" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-semibold hidden overflow-hidden">
+            <i class="fa-solid fa-shield-halved w-5 text-center text-indigo-500 flex-shrink-0"></i>
+            <span class="sidebar-label transition-opacity duration-200 truncate">Monitoring Keamanan</span>
+          </button>
+          <button onclick="navigateTo('rekap')" id="nav-rekap" title="Rekap Monitoring" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-semibold overflow-hidden">
+            <i class="fa-solid fa-chart-simple w-5 text-center flex-shrink-0"></i>
+            <span class="sidebar-label transition-opacity duration-200 truncate">Rekap Monitoring</span>
+          </button>
+          <button onclick="navigateTo('profil')" id="nav-profil" title="Profil Akun" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-semibold overflow-hidden">
+            <i class="fa-solid fa-id-card w-5 text-center flex-shrink-0"></i>
+            <span class="sidebar-label transition-opacity duration-200 truncate">Profil Akun</span>
+          </button>
+        </nav>
+      </div>
+
+      <div class="p-2 border-t border-slate-100 overflow-hidden">
+        <button onclick="handleLogout()" id="sidebarLogoutBtn" title="Keluar (Logout)" class="w-full flex items-center justify-center space-x-3 px-3 py-2.5 bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-600 rounded-xl text-xs font-semibold transition-colors duration-200 overflow-hidden">
+          <i class="fa-solid fa-arrow-right-from-bracket flex-shrink-0 w-5 text-center"></i>
+          <span class="sidebar-label transition-opacity duration-200 truncate">Keluar</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Content Wrapper (Topbar & Area Utama) -->
+    <div id="contentWrapper" class="flex-1 md:ml-64 flex flex-col min-h-screen transition-all duration-300 ease-in-out max-w-full overflow-hidden">
+      <!-- Topbar Header -->
+      <header class="h-16 bg-white border-b border-slate-200 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-20">
+        <div class="flex items-center space-x-3">
+          <!-- Tombol Hamburger Mobile -->
+          <button onclick="toggleMobileSidebar()" class="md:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100">
+            <i class="fa-solid fa-bars text-lg"></i>
+          </button>
+          <div>
+            <h2 class="text-sm sm:text-base font-bold text-slate-800" id="topbarTitle">Dashboard Ringkasan</h2>
+            <p class="text-[11px] text-slate-400 font-medium hidden sm:block" id="topbarSubtitle">Ringkasan data checklist aktif</p>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-2 sm:space-x-3">
+          <div class="flex items-center bg-slate-100 rounded-xl p-1 border border-slate-200 text-xs">
+            <select id="globalMonthSelect" onchange="onGlobalDateChange()" class="bg-transparent font-semibold text-slate-700 focus:outline-none px-2 py-1 cursor-pointer">
+              <option value="1">Januari</option>
+              <option value="2">Februari</option>
+              <option value="3">Maret</option>
+              <option value="4">April</option>
+              <option value="5">Mei</option>
+              <option value="6">Juni</option>
+              <option value="7">Juli</option>
+              <option value="8">Agustus</option>
+              <option value="9">September</option>
+              <option value="10">Oktober</option>
+              <option value="11">November</option>
+              <option value="12">Desember</option>
+            </select>
+            <select id="globalYearSelect" onchange="onGlobalDateChange()" class="bg-transparent font-semibold text-slate-700 focus:outline-none px-2 py-1 border-l border-slate-200 cursor-pointer">
+              <option value="2025">2025</option>
+              <option value="2026">2026</option>
+              <option value="2027">2027</option>
+            </select>
+          </div>
+
+          <button onclick="refreshCurrentPage()" title="Segarkan Data" class="p-2 rounded-xl bg-slate-100 hover:bg-brand-50 hover:text-brand-600 text-slate-600 text-xs font-semibold transition-colors">
+            <i class="fa-solid fa-arrows-rotate"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Container (Full Screen Layout 100%) -->
+      <main class="flex-1 p-3 sm:p-6 lg:p-8 max-w-full w-full mx-auto overflow-hidden">
+
+        <!-- ================= VIEW 1: DASHBOARD ================= -->
+        <section id="view-dashboard" class="space-y-6">
+          <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-brand-800 via-brand-700 to-accent-600 text-white p-6 sm:p-8 shadow-xl shadow-brand-700/15">
+            <div class="absolute right-0 bottom-0 opacity-10 transform translate-x-8 translate-y-8">
+              <i class="fa-solid fa-clipboard-check text-9xl"></i>
+            </div>
+            <div class="relative z-10 max-w-2xl">
+              <span class="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[11px] font-semibold tracking-wider uppercase">Sistem Terintegrasi</span>
+              <h2 class="text-xl sm:text-2xl font-black mt-2" id="dashWelcomeName">Halo, Pegawai!</h2>
+              <p class="text-xs sm:text-sm text-blue-100 mt-1 leading-relaxed">
+                Pantau seluruh checklist kebersihan harian dan standar pelayanan operasional kantor dalam satu tampilan terpadu.
+              </p>
+            </div>
+          </div>
+
+          <!-- Cards Statistik -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Target</span>
+                <div class="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center text-xs">
+                  <i class="fa-solid fa-list-check"></i>
+                </div>
+              </div>
+              <p class="text-2xl sm:text-3xl font-black text-slate-900 mt-3" id="dashTotalCount">0</p>
+              <p class="text-[11px] text-slate-400 mt-1">Kegiatan checklist aktif</p>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Selesai</span>
+                <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs">
+                  <i class="fa-solid fa-circle-check"></i>
+                </div>
+              </div>
+              <p class="text-2xl sm:text-3xl font-black text-emerald-600 mt-3" id="dashSelesaiCount">0</p>
+              <p class="text-[11px] text-emerald-600/80 mt-1 font-medium">Telah terlaksana</p>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-rose-600 uppercase tracking-wider">Belum Selesai</span>
+                <div class="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-xs">
+                  <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+              </div>
+              <p class="text-2xl sm:text-3xl font-black text-rose-600 mt-3" id="dashBelumCount">0</p>
+              <p class="text-[11px] text-rose-600/80 mt-1 font-medium">Kotak merah aktif</p>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-brand-600 uppercase tracking-wider">Pencapaian</span>
+                <div class="w-8 h-8 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center text-xs">
+                  <i class="fa-solid fa-percent"></i>
+                </div>
+              </div>
+              <p class="text-2xl sm:text-3xl font-black text-brand-600 mt-3" id="dashPersenCount">0%</p>
+              <div class="w-full bg-slate-100 h-1.5 rounded-full mt-2 overflow-hidden">
+                <div id="dashProgressBar" class="bg-brand-600 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Progress Ruangan List & Aksi Cepat Kontekstual -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <h3 class="font-bold text-slate-800 text-sm sm:text-base">Progress Berdasarkan Ruangan</h3>
+                  <p class="text-xs text-slate-400 mt-0.5">Tingkat kepatuhan checklist pada tiap area</p>
+                </div>
+                <span class="text-xs font-semibold text-brand-600 bg-brand-50 px-2.5 py-1 rounded-lg">Realtime</span>
+              </div>
+              <div id="dashRuanganContainer" class="space-y-3.5 mt-4">
+                <div class="text-center py-8 text-xs text-slate-400">Memuat progress ruangan...</div>
+              </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <h3 class="font-bold text-slate-800 text-sm sm:text-base mb-1">Aksi Cepat Monitoring</h3>
+                <p class="text-xs text-slate-400 mb-4">Akses langsung formulir checklist sesuai peran Anda</p>
+
+                <div class="space-y-2.5" id="dashQuickActionsContainer">
+                  <!-- Diisi via renderQuickActions() -->
+                </div>
+              </div>
+
+              <div class="mt-6 pt-4 border-t border-slate-100">
+                <div class="flex items-center justify-between text-[11px] text-slate-500">
+                  <span>Status Database:</span>
+                  <span class="font-bold text-emerald-600 flex items-center gap-1">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    Terkoneksi
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= VIEW 2: MONITORING KEBERSIHAN / PELAYANAN ================= -->
+        <section id="view-monitoring" class="hidden space-y-4">
+          <!-- Header Card & Pilihan Periode (Harian [Default], Mingguan, Bulanan) -->
+          <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 class="text-base font-bold text-slate-900 flex items-center gap-2" id="monitoringSectionTitle">
+                  <i class="fa-solid fa-sparkles text-accent-500"></i>
+                  <span>Monitoring Kebersihan Umum</span>
+                </h3>
+                <p class="text-xs text-slate-500 mt-0.5" id="monitoringSubtitle">
+                  Tandai cell merah (FALSE) menjadi selesai (TRUE). Hari ini dapat dibatalkan jika salah klik.
+                </p>
+              </div>
+
+              <!-- Segmented Switcher Periode: Harian (Default), Mingguan, Bulanan -->
+              <div class="bg-slate-100 p-1 rounded-xl border border-slate-200/80 flex items-center text-xs font-semibold self-start sm:self-auto">
+                <button onclick="changeMonitoringPeriod('harian')" id="periodBtn-harian" class="period-tab px-3.5 py-1.5 rounded-lg active">
+                  <i class="fa-solid fa-calendar-day mr-1 text-[11px]"></i>Harian
+                </button>
+                <button onclick="changeMonitoringPeriod('mingguan')" id="periodBtn-mingguan" class="period-tab px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900">
+                  <i class="fa-solid fa-calendar-week mr-1 text-[11px]"></i>Mingguan
+                </button>
+                <button onclick="changeMonitoringPeriod('bulanan')" id="periodBtn-bulanan" class="period-tab px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900">
+                  <i class="fa-solid fa-calendar-days mr-1 text-[11px]"></i>Bulanan
+                </button>
+              </div>
+            </div>
+
+            <!-- Sub-Nav Panel (Slider Tanggal Harian / Filter Minggu) -->
+            <div id="periodSubNavContainer" class="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <!-- Content diinjeksi via renderPeriodSubNav() -->
+            </div>
+
+            <!-- Filter Bar: Ruangan, Status, Search -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-100">
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Filter Ruangan</label>
+                <select id="filterRuangan" onchange="renderMonitoringView()" class="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl px-3 py-2 font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                  <option value="SEMUA">Semua Ruangan</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Filter Status</label>
+                <select id="filterStatus" onchange="renderMonitoringView()" class="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl px-3 py-2 font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                  <option value="SEMUA">Semua Item Checkbox</option>
+                  <option value="BELUM">Belum Dicentang (Kotak Merah)</option>
+                  <option value="SELESAI">Sudah Dicentang (TRUE)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Pencarian Kegiatan</label>
+                <div class="relative">
+                  <input type="text" id="searchKegiatan" oninput="renderMonitoringView()" placeholder="Cari kegiatan atau ruangan..." 
+                    class="w-full bg-slate-50 border border-slate-200 text-xs rounded-xl pl-8 pr-3 py-2 font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                  <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Container Utama Monitoring (Card List / Paged Full Screen Table) -->
+          <div id="monitoringContentArea">
+            <!-- Diisi via renderMonitoringView() -->
+          </div>
+        </section>
+
+        <!-- ================= VIEW 3: REKAP MONITORING ================= -->
+        <section id="view-rekap" class="hidden space-y-6">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-chart-simple text-brand-600"></i>
+              <span>Rekapitulasi & Visualisasi Pencapaian</span>
+            </h3>
+            <p class="text-xs text-slate-500 mt-0.5">Analisis ketercapaian checklist harian dan kepatuhan per ruangan</p>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+              <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-4 flex items-center justify-between">
+                <span>Tren Kepatuhan Checklist Harian</span>
+                <i class="fa-solid fa-chart-line text-brand-500"></i>
+              </h4>
+              <div class="relative h-64">
+                <canvas id="chartTrenHarian"></canvas>
+              </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+              <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-4 flex items-center justify-between">
+                <span>Pencapaian Berdasarkan Ruangan</span>
+                <i class="fa-solid fa-chart-bar text-accent-500"></i>
+              </h4>
+              <div class="relative h-64">
+                <canvas id="chartRuangan"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabel Rekapitulasi Detail -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+              <h4 class="text-sm font-bold text-slate-800">Tabel Ringkasan Per Ruangan</h4>
+              <span class="text-xs text-slate-400 font-medium">Bulan Aktif</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead class="bg-slate-50 text-slate-600 font-semibold uppercase text-[11px] border-b border-slate-200">
+                  <tr>
+                    <th class="p-3.5">Nama Ruangan</th>
+                    <th class="p-3.5 text-center">Jumlah Kegiatan</th>
+                    <th class="p-3.5 text-center">Total Target Checklist</th>
+                    <th class="p-3.5 text-center">Selesai Dikerjakan</th>
+                    <th class="p-3.5 text-center">Persentase</th>
+                    <th class="p-3.5 min-w-[160px]">Status Bar</th>
+                  </tr>
+                </thead>
+                <tbody id="rekapTableBody" class="divide-y divide-slate-100">
+                  <tr>
+                    <td colspan="6" class="p-6 text-center text-slate-400">Memuat rekapitulasi...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= VIEW 4: PROFIL AKUN ================= -->
+        <section id="view-profil" class="hidden space-y-6 max-w-2xl mx-auto">
+          <!-- Card Profil Utama -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
+            <div class="flex items-center space-x-4 border-b border-slate-100 pb-6">
+              <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-700 to-accent-500 text-white font-extrabold text-2xl flex items-center justify-center shadow-lg shadow-brand-600/20" id="profilBigAvatar">
+                U
+              </div>
+              <div>
+                <h3 class="text-lg font-bold text-slate-900" id="profilNamaPegawai">Nama Pegawai</h3>
+                <p class="text-xs text-slate-500" id="profilUsername">@username</p>
+                <span class="inline-flex items-center px-2 py-0.5 mt-1.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800">
+                  <i class="fa-solid fa-circle-check mr-1 text-[9px]"></i> Sesi Aktif & Terlindungi
+                </span>
+              </div>
+            </div>
+
+            <div class="py-6 space-y-4">
+              <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Informasi Akun & Hak Akses</h4>
+              
+              <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-2.5 text-xs">
+                <div class="flex justify-between py-1 border-b border-slate-200/60">
+                  <span class="text-slate-500">Nama Lengkap</span>
+                  <span class="font-bold text-slate-800" id="infoNamaLengkap">-</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-200/60">
+                  <span class="text-slate-500">Username Login</span>
+                  <span class="font-bold text-slate-800" id="infoUsername">-</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-200/60">
+                  <span class="text-slate-500">Otorisasi Data</span>
+                  <span class="font-semibold text-emerald-600">Isolasi Sheet Pegawai Mandiri</span>
+                </div>
+                <div class="flex justify-between py-1">
+                  <span class="text-slate-500">Database Engine</span>
+                  <span class="font-medium text-slate-700">Google Apps Script & Spreadsheet</span>
+                </div>
+              </div>
+
+              <div class="bg-blue-50/70 border border-blue-200 p-4 rounded-xl text-xs text-blue-800 space-y-1">
+                <p class="font-bold flex items-center gap-1.5">
+                  <i class="fa-solid fa-lock text-brand-600"></i>
+                  Aturan Pengisian Berdasarkan Tanggal
+                </p>
+                <p class="text-blue-700/90 leading-relaxed text-[11px]">
+                  - <strong>Hari Ini</strong>: Pengguna dapat dicentang (TRUE) dan dapat dibatalkan (FALSE) jika ada salah klik.<br>
+                  - <strong>Tanggal Lampau</strong>: Data yang sudah terisi (TRUE) dikunci otomatis.<br>
+                  - <strong>Sabtu & Minggu</strong>: Hari Libur (bebas tugas).
+                </p>
+              </div>
+            </div>
+
+            <div class="pt-4 border-t border-slate-100 flex justify-end">
+              <button onclick="handleLogout()" class="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md shadow-rose-600/20 transition-all flex items-center gap-2">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                <span>Keluar Dari Aplikasi</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Card Ganti Username & Password -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+              <div>
+                <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <i class="fa-solid fa-user-gear text-brand-600"></i>
+                  <span>Ganti Username & Password</span>
+                </h3>
+                <p class="text-xs text-slate-500 mt-0.5">Perbarui kredensial akun login Anda secara mandiri</p>
+              </div>
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200/80">
+                1x Per Hari
+              </span>
+            </div>
+
+            <!-- Banner Peringatan Pembatasan 1x Sehari -->
+            <div class="bg-amber-50 border border-amber-200 p-3.5 rounded-xl text-xs text-amber-800 mb-5 flex items-start space-x-2.5">
+              <i class="fa-solid fa-triangle-exclamation text-amber-600 mt-0.5 flex-shrink-0"></i>
+              <div class="leading-relaxed text-[11px]">
+                <strong>Ketentuan Keamanan:</strong> Penggantian username dan/atau password dibatasi maksimal <strong>1 (satu) kali per hari</strong>. Pastikan data yang dimasukkan sudah benar sebelum menyimpan.
+              </div>
+            </div>
+
+            <form id="formChangeCred" onsubmit="handleChangeCredentials(event)" class="space-y-4">
+              <!-- Password Saat Ini -->
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Password Saat Ini <span class="text-rose-500">*</span>
+                </label>
+                <div class="relative">
+                  <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <i class="fa-solid fa-key text-xs"></i>
+                  </span>
+                  <input type="password" id="editOldPassword" required placeholder="Masukkan password saat ini untuk verifikasi" 
+                    class="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all text-slate-800 font-medium">
+                  <button type="button" onclick="toggleCredPassword('editOldPassword', 'eyeOldIcon')" class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600">
+                    <i id="eyeOldIcon" class="fa-solid fa-eye text-xs"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Username Baru -->
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Username Baru <span class="text-rose-500">*</span>
+                </label>
+                <div class="relative">
+                  <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <i class="fa-solid fa-user text-xs"></i>
+                  </span>
+                  <input type="text" id="editNewUsername" required placeholder="Minimal 3 karakter, contoh: slamet" 
+                    class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all text-slate-800 font-medium">
+                </div>
+                <p class="text-[10px] text-slate-400 mt-1">Username digunakan untuk login ke sistem.</p>
+              </div>
+
+              <!-- Password Baru -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Password Baru
+                  </label>
+                  <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <i class="fa-solid fa-lock text-xs"></i>
+                    </span>
+                    <input type="password" id="editNewPassword" placeholder="Kosongkan jika tak diubah" 
+                      class="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all text-slate-800 font-medium">
+                    <button type="button" onclick="toggleCredPassword('editNewPassword', 'eyeNewIcon')" class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600">
+                      <i id="eyeNewIcon" class="fa-solid fa-eye text-xs"></i>
+                    </button>
+                  </div>
+                  <p class="text-[10px] text-slate-400 mt-1">Minimal 4 karakter.</p>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Konfirmasi Password Baru
+                  </label>
+                  <div class="relative">
+                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <i class="fa-solid fa-shield text-xs"></i>
+                    </span>
+                    <input type="password" id="editConfirmPassword" placeholder="Ulangi password baru" 
+                      class="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all text-slate-800 font-medium">
+                    <button type="button" onclick="toggleCredPassword('editConfirmPassword', 'eyeConfirmIcon')" class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600">
+                      <i id="eyeConfirmIcon" class="fa-solid fa-eye text-xs"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Pesan Notifikasi / Error -->
+              <div id="changeCredMsg" class="hidden"></div>
+
+              <div class="pt-3 border-t border-slate-100 flex justify-end">
+                <button type="submit" id="btnSubmitCred"
+                  class="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-xl shadow-md shadow-brand-600/20 transition-all flex items-center justify-center space-x-2 active:scale-98">
+                  <i class="fa-solid fa-floppy-disk text-xs"></i>
+                  <span>Simpan Perubahan Kredensial</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <!-- ================= VIEW 5: MONITORING KEAMANAN ================= -->
+        <section id="view-keamanan" class="hidden space-y-5">
+          <!-- Header Card -->
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 class="text-base font-bold text-slate-900 flex items-center gap-2" id="keamananSectionTitle">
+                  <i class="fa-solid fa-shield-halved text-indigo-500"></i>
+                  <span>Monitoring & Piket Keamanan</span>
+                </h3>
+                <p class="text-xs text-slate-500 mt-0.5">Jadwal shift dari JadwalPiketSecurity & checklist tugas harian otomatis</p>
+              </div>
+              <!-- Legenda Shift -->
+              <div class="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-100 text-blue-700">
+                  <span class="w-2 h-2 rounded-full bg-blue-500"></span>Pagi
+                </span>
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
+                  <span class="w-2 h-2 rounded-full bg-amber-500"></span>Sore
+                </span>
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700">
+                  <span class="w-2 h-2 rounded-full bg-indigo-500"></span>Malam
+                </span>
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-500">
+                  <span class="w-2 h-2 rounded-full bg-slate-400"></span>Libur
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Kartu Ringkasan Shift -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4" id="keamananSummaryCards">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+              <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Hari Kerja</p>
+              <p class="text-2xl font-black text-slate-900 mt-2" id="kSum-total">—</p>
+              <p class="text-[10px] text-slate-400 mt-0.5">Shift aktif bulan ini</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-blue-100 shadow-sm">
+              <p class="text-[11px] font-semibold text-blue-600 uppercase tracking-wider">Shift Pagi</p>
+              <p class="text-2xl font-black text-blue-600 mt-2" id="kSum-pagi">—</p>
+              <p class="text-[10px] text-blue-400 mt-0.5">06.00 – 16.00</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-amber-100 shadow-sm">
+              <p class="text-[11px] font-semibold text-amber-600 uppercase tracking-wider">Shift Sore</p>
+              <p class="text-2xl font-black text-amber-600 mt-2" id="kSum-sore">—</p>
+              <p class="text-[10px] text-amber-400 mt-0.5">15.30 – 23.30</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-indigo-100 shadow-sm">
+              <p class="text-[11px] font-semibold text-indigo-600 uppercase tracking-wider">Shift Malam</p>
+              <p class="text-2xl font-black text-indigo-600 mt-2" id="kSum-malam">—</p>
+              <p class="text-[10px] text-indigo-400 mt-0.5">23.00 – 07.30</p>
+            </div>
+          </div>
+
+          <!-- Pemilih Tanggal Harian -->
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h4 class="text-sm font-bold text-slate-800">Jadwal Shift Harian (Pilih Tanggal)</h4>
+                <p class="text-xs text-slate-400 mt-0.5">Klik salah satu tanggal untuk melihat dan me-monitored tugas shift</p>
+              </div>
+            </div>
+            <div id="keamananScheduleContainer" class="p-4">
+              <div class="text-center py-8 text-xs text-slate-400">Memuat jadwal...</div>
+            </div>
+          </div>
+
+          <!-- Container Checklist Tugas Tanggal Terpilih -->
+          <div id="keamananTaskListContainer" class="space-y-4">
+            <!-- Disikan via renderJadwalKeamananUI() -->
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ================= JAVASCRIPT LOGIC ================= -->
+  <script>
+    /**
+     * STATE MANAGER CLIENT-SIDE
+     */
+    let currentUser              = null;
+    let sessionToken             = null;
+    let activeView               = 'dashboard';
+    let employeeJenis            = 'PIKET KEBERSIHAN KANTOR'; // jenis tugas pegawai
+    let currentMonitoringJenis   = 'Kebersihan';              // 'Kebersihan' | 'Pelayanan'
+    let monitoringPeriod         = 'harian';                  // 'harian' (default) | 'mingguan' | 'bulanan'
+    let selectedMonitoringDay    = 1;                         // Hari aktif terpilih (1-31)
+    let selectedMonitoringWeek   = 1;                         // Minggu terpilih (1-5)
+    let harianWeekGroupIndex     = 0;                         // Indeks Partisi Kalender Harian (0..4)
+    let displayFormatHarian      = 'cards';                   // 'cards' | 'table'
+    let tableCurrentPage         = 1;                         // Pagination Halaman Tabel
+    let isSidebarCollapsed       = false;                     // Collapse desktop sidebar
+    let cachedMonitoringData     = null;
+    let cachedKeamananData       = null;
+    let selectedKeamananDay      = 1;
+    let chartTrenInstance        = null;
+    let chartRuanganInstance     = null;
+
+    const HARI_SHORT = ['Mi', 'Sen', 'Sel', 'Ra', 'Ka', 'Ju', 'Sa'];
+
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxloHJeE5Qlr7EcStr0qRGVnLvQh07Tw-iVY7km6fNtjXKNVS_tA5pp3-Uu3kMC2_9-/exec';
+
+    const isGasEnvironment = typeof google !== 'undefined' && google.script && google.script.run;
+
+    /**
+     * UNIFIED BACKEND API CALLER
+     * Mendukung:
+     * 1. google.script.run (jika berjalan di Web App Google Apps Script)
+     * 2. fetch() ke SCRIPT_URL (jika dideploy mandiri di GitHub Pages, Vercel, Netlify, dll.)
+     */
+    async function callBackend(action, params = {}) {
+      if (isGasEnvironment) {
+        return new Promise((resolve, reject) => {
+          const runner = google.script.run
+            .withSuccessHandler((res) => resolve(res))
+            .withFailureHandler((err) => reject(err));
+
+          if (action === 'login') {
+            runner.login(params.username, params.password);
+          } else if (action === 'logout') {
+            runner.logout(params.token);
+          } else if (action === 'getDashboardData') {
+            runner.getDashboardData(params.token, params.bulan, params.tahun);
+          } else if (action === 'getMonitoringData') {
+            runner.getMonitoringData(params.token, params.jenis, params.bulan, params.tahun, params.filterRuangan || 'SEMUA', params.filterStatus || 'SEMUA');
+          } else if (action === 'updateMonitoringStatus') {
+            runner.updateMonitoringStatus(params.token, params.sheetRowIndex, params.colIndex, params.newStatus, params.dayNum, params.bulan, params.tahun);
+          } else if (action === 'getRekapMonitoring') {
+            runner.getRekapMonitoring(params.token, params.bulan, params.tahun);
+          } else if (action === 'getJadwalKeamanan') {
+            runner.getJadwalKeamanan(params.token, params.bulan, params.tahun);
+          } else if (action === 'changeCredentials') {
+            runner.changeCredentials(params.token, params.oldPassword, params.newUsername, params.newPassword);
+          } else {
+            reject(new Error('Aksi tidak dikenali: ' + action));
+          }
+        });
+      }
+
+      if (SCRIPT_URL && SCRIPT_URL.startsWith('https://script.google.com/')) {
+        const payload = Object.assign({ action: action }, params);
+        const response = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload),
+          redirect: 'follow'
+        });
+
+        if (!response.ok) {
+          throw new Error('Gagal menghubungi server (HTTP ' + response.status + ')');
+        }
+
+        const data = await response.json();
+        return data;
+      }
+
+      throw new Error('URL App Script belum dikonfigurasi.');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const today = new Date();
+      document.getElementById('globalMonthSelect').value = String(today.getMonth() + 1);
+      document.getElementById('globalYearSelect').value = String(today.getFullYear());
+
+      const savedCollapse = localStorage.getItem('simpelkeb_sidebar_collapsed');
+      if (savedCollapse === 'true') {
+        isSidebarCollapsed = true;
+        applySidebarCollapseState();
+      }
+
+      const savedToken = sessionStorage.getItem('simpelkeb_token');
+      const savedUser = sessionStorage.getItem('simpelkeb_user');
+
+      if (savedToken && savedUser) {
+        try {
+          sessionToken = savedToken;
+          currentUser = JSON.parse(savedUser);
+          initAuthenticatedApp();
+        } catch (e) {
+          showLoginPage();
+        }
+      } else {
+        showLoginPage();
+      }
+    });
+
+    function showLoginPage() {
+      document.getElementById('loginPage').classList.remove('hidden');
+      document.getElementById('mainApp').classList.add('hidden');
+
+      sessionStorage.clear();
+      sessionToken = null;
+      currentUser = null;
+    }
+
+    function initAuthenticatedApp() {
+      document.getElementById('loginPage').classList.add('hidden');
+      document.getElementById('mainApp').classList.remove('hidden');
+
+      const initial = currentUser.namaPegawai ? currentUser.namaPegawai.charAt(0).toUpperCase() : 'U';
+      document.getElementById('sidebarAvatar').innerText = initial;
+      document.getElementById('sidebarUserName').innerText = currentUser.namaPegawai;
+      document.getElementById('profilBigAvatar').innerText = initial;
+      document.getElementById('profilNamaPegawai').innerText = currentUser.namaPegawai;
+      document.getElementById('profilUsername').innerText = '@' + currentUser.username;
+      document.getElementById('infoNamaLengkap').innerText = currentUser.namaPegawai;
+      document.getElementById('infoUsername').innerText = currentUser.username;
+      document.getElementById('dashWelcomeName').innerText = 'Halo, ' + currentUser.namaPegawai + '!';
+
+      employeeJenis = currentUser.jenis || 'PIKET KEBERSIHAN KANTOR';
+      renderDynamicMenu(employeeJenis);
+      renderQuickActions();
+
+      if (employeeJenis === 'KEAMANAN KANTOR') {
+        activeView = 'keamanan';
+      } else {
+        activeView = 'dashboard';
+      }
+
+      navigateTo(activeView);
+    }
+
+    async function handleLogin(event) {
+      event.preventDefault();
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value.trim();
+      const errBox = document.getElementById('loginErrorMessage');
+      const errText = document.getElementById('loginErrorText');
+      const btnSubmit = document.getElementById('btnLoginSubmit');
+
+      errBox.classList.add('hidden');
+      btnSubmit.disabled = true;
+      btnSubmit.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i><span>Memverifikasi...</span>';
+
+      try {
+        const res = await callBackend('login', { username, password });
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = '<span>Masuk ke Dashboard</span><i class="fa-solid fa-arrow-right text-xs"></i>';
+        if (res && res.success) {
+          sessionToken  = res.token;
+          currentUser   = res.user;
+          sessionStorage.setItem('simpelkeb_token', res.token);
+          sessionStorage.setItem('simpelkeb_user', JSON.stringify(res.user));
+          showToast('Login berhasil! Selamat datang, ' + res.user.namaPegawai, 'success');
+          initAuthenticatedApp();
+        } else {
+          errText.innerText = (res && res.message) ? res.message : 'Kredensial tidak valid.';
+          errBox.classList.remove('hidden');
+        }
+      } catch (err) {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = '<span>Masuk ke Dashboard</span><i class="fa-solid fa-arrow-right text-xs"></i>';
+        errText.innerText = 'Koneksi gagal: ' + err.message;
+        errBox.classList.remove('hidden');
+      }
+    }
+
+    async function handleLogout() {
+      showLoader(true);
+      try {
+        if (sessionToken) {
+          await callBackend('logout', { token: sessionToken });
+        }
+      } catch (e) {
+        console.warn('Logout error:', e);
+      } finally {
+        showLoader(false);
+        showToast("Anda telah keluar dari aplikasi.", "info");
+        showLoginPage();
+      }
+    }
+
+    /**
+     * TOGGLE NAVIGASI MOBILE DRAWER
+     */
+    function toggleMobileSidebar() {
+      const sidebar  = document.getElementById('appSidebar');
+      const backdrop = document.getElementById('sidebarBackdrop');
+      if (sidebar && backdrop) {
+        sidebar.classList.toggle('-translate-x-full');
+        backdrop.classList.toggle('hidden');
+      }
+    }
+
+    /**
+     * TOGGLE COLLAPSE SIDEBAR DESKTOP (PRESI RAPI TANPA BORDER MELUAP)
+     */
+    function toggleSidebarCollapse() {
+      isSidebarCollapsed = !isSidebarCollapsed;
+      localStorage.setItem('simpelkeb_sidebar_collapsed', String(isSidebarCollapsed));
+      applySidebarCollapseState();
+    }
+
+    function applySidebarCollapseState() {
+      const sidebar     = document.getElementById('appSidebar');
+      const content     = document.getElementById('contentWrapper');
+      const profileBox  = document.getElementById('sidebarProfileBox');
+      const avatar      = document.getElementById('sidebarAvatar');
+      const labels      = document.querySelectorAll('.sidebar-label');
+      const iconInner   = document.getElementById('sidebarInnerToggleIcon');
+      const logoIcon    = document.getElementById('sidebarHeaderLogoIcon');
+      const collapseBtn = document.getElementById('sidebarCollapseBtn');
+      const navItems    = document.querySelectorAll('#sidebarNav .nav-item');
+      const logoutBtn   = document.getElementById('sidebarLogoutBtn');
+
+      if (isSidebarCollapsed) {
+        sidebar.classList.remove('w-64');
+        sidebar.classList.add('w-16');
+
+        content.classList.remove('md:ml-64');
+        content.classList.add('md:ml-16');
+
+        labels.forEach(el => el.classList.add('hidden', 'md:hidden'));
+
+        if (collapseBtn) collapseBtn.classList.add('hidden', 'md:hidden');
+        if (logoIcon) logoIcon.className = 'fa-solid fa-angles-right text-xs';
+
+        if (profileBox) {
+          profileBox.className = 'py-3 px-0 mx-auto my-2 flex justify-center items-center bg-transparent border-0 rounded-none w-full';
+        }
+        if (avatar) {
+          avatar.className = 'w-9 h-9 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-xs shadow-xs mx-auto';
+        }
+
+        navItems.forEach(item => {
+          item.classList.remove('px-3', 'space-x-3');
+          item.classList.add('px-0', 'justify-center', 'w-10', 'h-10', 'mx-auto');
+        });
+
+        if (logoutBtn) {
+          logoutBtn.classList.remove('px-3', 'space-x-3');
+          logoutBtn.classList.add('px-0', 'justify-center', 'w-10', 'h-10', 'mx-auto');
+        }
+      } else {
+        sidebar.classList.remove('w-16');
+        sidebar.classList.add('w-64');
+
+        content.classList.remove('md:ml-16');
+        content.classList.add('md:ml-64');
+
+        labels.forEach(el => el.classList.remove('hidden', 'md:hidden'));
+
+        if (collapseBtn) collapseBtn.classList.remove('hidden', 'md:hidden');
+        if (logoIcon) logoIcon.className = 'fa-solid fa-clipboard-check text-sm';
+        if (iconInner) iconInner.className = 'fa-solid fa-chevron-left text-xs';
+
+        if (profileBox) {
+          profileBox.className = 'p-3 mx-2 my-3 bg-slate-50 rounded-xl border border-slate-200/70 flex items-center space-x-3 overflow-hidden';
+        }
+        if (avatar) {
+          avatar.className = 'w-9 h-9 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-xs flex-shrink-0 mx-auto';
+        }
+
+        navItems.forEach(item => {
+          item.classList.remove('px-0', 'justify-center', 'w-10', 'h-10', 'mx-auto');
+          item.classList.add('px-3', 'space-x-3');
+        });
+
+        if (logoutBtn) {
+          logoutBtn.classList.remove('px-0', 'justify-center', 'w-10', 'h-10', 'mx-auto');
+          logoutBtn.classList.add('px-3', 'space-x-3');
+        }
+      }
+    }
+
+    /**
+     * RENDER AKSI CEPAT DASHBOARD (SELEKTIF SESUAI PERAN PEGAWAI)
+     */
+    function renderQuickActions() {
+      const container = document.getElementById('dashQuickActionsContainer');
+      if (!container) return;
+
+      const j = (employeeJenis || '').toUpperCase();
+      let html = '';
+
+      if (j.includes('KEBERSIHAN')) {
+        html += `
+          <button onclick="navigateTo('kebersihan')" class="w-full p-3.5 rounded-xl border border-slate-200 hover:border-accent-500/50 hover:bg-accent-50/30 transition-all flex items-center justify-between text-left group">
+            <div class="flex items-center space-x-3">
+              <div class="w-9 h-9 rounded-xl bg-orange-100 text-accent-600 flex items-center justify-center text-sm group-hover:scale-105 transition-transform">
+                <i class="fa-solid fa-sparkles"></i>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-slate-800">Checklist Kebersihan</p>
+                <p class="text-[10px] text-slate-400">Ruang kerja, toilet, lobby</p>
+              </div>
+            </div>
+            <i class="fa-solid fa-chevron-right text-xs text-slate-400 group-hover:text-accent-600"></i>
+          </button>
+        `;
+      } else if (j.includes('RESEPSIONIS') || j.includes('PELAYANAN')) {
+        html += `
+          <button onclick="navigateTo('pelayanan')" class="w-full p-3.5 rounded-xl border border-slate-200 hover:border-brand-500/50 hover:bg-brand-50/30 transition-all flex items-center justify-between text-left group">
+            <div class="flex items-center space-x-3">
+              <div class="w-9 h-9 rounded-xl bg-blue-100 text-brand-600 flex items-center justify-center text-sm group-hover:scale-105 transition-transform">
+                <i class="fa-solid fa-hand-holding-heart"></i>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-slate-800">Checklist Pelayanan</p>
+                <p class="text-[10px] text-slate-400">Standar PST, tamu, ATK</p>
+              </div>
+            </div>
+            <i class="fa-solid fa-chevron-right text-xs text-slate-400 group-hover:text-brand-600"></i>
+          </button>
+        `;
+      } else if (j.includes('KEAMANAN')) {
+        html += `
+          <button onclick="navigateTo('keamanan')" class="w-full p-3.5 rounded-xl border border-slate-200 hover:border-indigo-500/50 hover:bg-indigo-50/30 transition-all flex items-center justify-between text-left group">
+            <div class="flex items-center space-x-3">
+              <div class="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm group-hover:scale-105 transition-transform">
+                <i class="fa-solid fa-shield-halved"></i>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-slate-800">Monitoring Keamanan</p>
+                <p class="text-[10px] text-slate-400">Jadwal shift & checklist piket</p>
+              </div>
+            </div>
+            <i class="fa-solid fa-chevron-right text-xs text-slate-400 group-hover:text-indigo-600"></i>
+          </button>
+        `;
+      } else {
+        html += `
+          <button onclick="navigateTo('kebersihan')" class="w-full p-3.5 rounded-xl border border-slate-200 hover:border-accent-500/50 hover:bg-accent-50/30 transition-all flex items-center justify-between text-left group">
+            <div class="flex items-center space-x-3">
+              <div class="w-9 h-9 rounded-xl bg-orange-100 text-accent-600 flex items-center justify-center text-sm group-hover:scale-105 transition-transform">
+                <i class="fa-solid fa-sparkles"></i>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-slate-800">Checklist Kebersihan</p>
+                <p class="text-[10px] text-slate-400">Ruang kerja, toilet, lobby</p>
+              </div>
+            </div>
+            <i class="fa-solid fa-chevron-right text-xs text-slate-400 group-hover:text-accent-600"></i>
+          </button>
+        `;
+      }
+
+      html += `
+        <button onclick="navigateTo('rekap')" class="w-full p-3.5 rounded-xl border border-slate-200 hover:border-emerald-500/50 hover:bg-emerald-50/30 transition-all flex items-center justify-between text-left group">
+          <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-sm group-hover:scale-105 transition-transform">
+              <i class="fa-solid fa-chart-pie"></i>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-slate-800">Grafik & Rekapitulasi</p>
+              <p class="text-[10px] text-slate-400">Laporan visual bulanan</p>
+            </div>
+          </div>
+          <i class="fa-solid fa-chevron-right text-xs text-slate-400 group-hover:text-emerald-600"></i>
+        </button>
+      `;
+
+      container.innerHTML = html;
+    }
+
+    function renderDynamicMenu(jenis) {
+      ['nav-kebersihan', 'nav-pelayanan', 'nav-keamanan'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+      });
+
+      const j = (jenis || '').toUpperCase();
+      if (j.includes('KEBERSIHAN')) {
+        document.getElementById('nav-kebersihan').classList.remove('hidden');
+      } else if (j.includes('RESEPSIONIS') || j.includes('PELAYANAN')) {
+        document.getElementById('nav-pelayanan').classList.remove('hidden');
+      } else if (j.includes('KEAMANAN')) {
+        document.getElementById('nav-keamanan').classList.remove('hidden');
+      } else {
+        document.getElementById('nav-kebersihan').classList.remove('hidden');
+      }
+    }
+
+    function navigateTo(viewName) {
+      activeView = viewName;
+
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      const navBtn = document.getElementById('nav-' + viewName);
+      if (navBtn) navBtn.classList.add('active');
+
+      ['view-dashboard','view-monitoring','view-rekap','view-profil','view-keamanan'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+      });
+
+      // Tutup drawer sidebar pada mobile setelah memilih menu
+      const sidebar  = document.getElementById('appSidebar');
+      const backdrop = document.getElementById('sidebarBackdrop');
+      if (sidebar) sidebar.classList.add('-translate-x-full');
+      if (backdrop) backdrop.classList.add('hidden');
+
+      if (viewName === 'dashboard') {
+        document.getElementById('topbarTitle').innerText   = 'Dashboard Ringkasan';
+        document.getElementById('topbarSubtitle').innerText = 'Ringkasan data checklist aktif';
+        document.getElementById('view-dashboard').classList.remove('hidden');
+        loadDashboardData();
+      } else if (viewName === 'kebersihan') {
+        currentMonitoringJenis = 'Kebersihan';
+        monitoringPeriod = 'harian';
+        tableCurrentPage = 1;
+        document.getElementById('topbarTitle').innerText   = 'Monitoring Kebersihan';
+        document.getElementById('topbarSubtitle').innerText = 'Checklist kebersihan harian, mingguan, & bulanan';
+        document.getElementById('monitoringSectionTitle').innerHTML = '<i class="fa-solid fa-sparkles text-accent-500"></i><span>Monitoring Kebersihan Umum</span>';
+        document.getElementById('view-monitoring').classList.remove('hidden');
+        loadMonitoringData('Kebersihan');
+      } else if (viewName === 'pelayanan') {
+        currentMonitoringJenis = 'Pelayanan';
+        monitoringPeriod = 'harian';
+        tableCurrentPage = 1;
+        document.getElementById('topbarTitle').innerText   = 'Monitoring Pelayanan';
+        document.getElementById('topbarSubtitle').innerText = 'Checklist standar pelayanan kantor';
+        document.getElementById('monitoringSectionTitle').innerHTML = '<i class="fa-solid fa-hand-holding-heart text-brand-500"></i><span>Monitoring Standar Pelayanan</span>';
+        document.getElementById('view-monitoring').classList.remove('hidden');
+        loadMonitoringData('Pelayanan');
+      } else if (viewName === 'keamanan') {
+        document.getElementById('topbarTitle').innerText   = 'Monitoring Keamanan';
+        document.getElementById('topbarSubtitle').innerText = 'Jadwal piket shift dari JadwalPiketSecurity';
+        document.getElementById('view-keamanan').classList.remove('hidden');
+        loadJadwalKeamanan();
+      } else if (viewName === 'rekap') {
+        document.getElementById('topbarTitle').innerText   = 'Rekap Monitoring';
+        document.getElementById('topbarSubtitle').innerText = 'Visualisasi statistik dan rekapitulasi';
+        document.getElementById('view-rekap').classList.remove('hidden');
+        loadRekapData();
+      } else if (viewName === 'profil') {
+        document.getElementById('topbarTitle').innerText   = 'Profil Akun';
+        document.getElementById('topbarSubtitle').innerText = 'Informasi akun dan pengaturan kredensial';
+        document.getElementById('view-profil').classList.remove('hidden');
+        initProfilView();
+      }
+    }
+
+    function onGlobalDateChange() {
+      refreshCurrentPage();
+    }
+
+    function refreshCurrentPage() {
+      if      (activeView === 'dashboard') loadDashboardData();
+      else if (activeView === 'kebersihan') loadMonitoringData('Kebersihan');
+      else if (activeView === 'pelayanan')  loadMonitoringData('Pelayanan');
+      else if (activeView === 'keamanan')   loadJadwalKeamanan();
+      else if (activeView === 'rekap')      loadRekapData();
+    }
+
+    /**
+     * =========================================================================
+     * PERIODE SWITCHER LOGIC (HARIAN [DEFAULT], MINGGUAN, BULANAN)
+     * =========================================================================
+     */
+    function changeMonitoringPeriod(newPeriod) {
+      monitoringPeriod = newPeriod;
+      tableCurrentPage = 1;
+
+      ['harian', 'mingguan', 'bulanan'].forEach(p => {
+        const btn = document.getElementById('periodBtn-' + p);
+        if (btn) {
+          if (p === newPeriod) {
+            btn.className = 'period-tab px-3.5 py-1.5 rounded-lg active bg-white text-brand-700 shadow-xs font-bold';
+          } else {
+            btn.className = 'period-tab px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 font-medium';
+          }
+        }
+      });
+
+      renderPeriodSubNav();
+      renderMonitoringView();
+    }
+
+    /**
+     * MENGELOMPOKKAN HARI DALAM BULAN BERDASARKAN MINGGU KALENDER
+     * Aturan: Mulai dari SENIN tiap minggunya (kecuali Minggu 1), dan diakhiri MINGGU (kecuali Minggu Terakhir)
+     */
+    function buildCalendarWeekGroups(activeDays, month, year) {
+      if (!activeDays || activeDays.length === 0) return [];
+      const groups = [];
+      let currentGroup = [];
+
+      activeDays.forEach(d => {
+        currentGroup.push(d);
+        const dateObj = new Date(year, month - 1, d);
+        const dow = dateObj.getDay(); // 0 = Minggu
+        if (dow === 0) { // Berakhir di hari Minggu
+          groups.push(currentGroup);
+          currentGroup = [];
+        }
+      });
+
+      if (currentGroup.length > 0) {
+        groups.push(currentGroup);
+      }
+
+      return groups;
+    }
+
+    function initSelectedDayAndWeek() {
+      if (!cachedMonitoringData) return;
+      const activeDays = cachedMonitoringData.activeDays || [];
+      if (activeDays.length === 0) {
+        selectedMonitoringDay = 1;
+        selectedMonitoringWeek = 1;
+        harianWeekGroupIndex = 0;
+        return;
+      }
+
+      const today = new Date();
+      const currentBulan = Number(document.getElementById('globalMonthSelect').value);
+      const currentTahun = Number(document.getElementById('globalYearSelect').value);
+
+      if (today.getMonth() + 1 === currentBulan && today.getFullYear() === currentTahun) {
+        selectedMonitoringDay = today.getDate();
+      } else {
+        selectedMonitoringDay = activeDays[0];
+      }
+
+      const weekGroups = buildCalendarWeekGroups(activeDays, currentBulan, currentTahun);
+      let foundGroupIdx = 0;
+      weekGroups.forEach((grp, idx) => {
+        if (grp.includes(selectedMonitoringDay)) foundGroupIdx = idx;
+      });
+      harianWeekGroupIndex = foundGroupIdx;
+      selectedMonitoringWeek = Math.min(weekGroups.length || 1, foundGroupIdx + 1);
+    }
+
+    function renderPeriodSubNav() {
+      const container = document.getElementById('periodSubNavContainer');
+      if (!container || !cachedMonitoringData) return;
+
+      const activeDays = cachedMonitoringData.activeDays || [];
+      const currentBulan = Number(document.getElementById('globalMonthSelect').value);
+      const currentTahun = Number(document.getElementById('globalYearSelect').value);
+
+      if (monitoringPeriod === 'harian') {
+        const weekGroups = buildCalendarWeekGroups(activeDays, currentBulan, currentTahun);
+        const totalGroups = Math.max(1, weekGroups.length);
+        harianWeekGroupIndex = Math.min(harianWeekGroupIndex, totalGroups - 1);
+
+        const currentWeekDays = weekGroups[harianWeekGroupIndex] || activeDays;
+
+        let dayPillsHtml = '';
+        currentWeekDays.forEach(d => {
+          const dateObj = new Date(currentTahun, currentBulan - 1, d);
+          const dow = dateObj.getDay();
+          const isHoliday = (dow === 0 || dow === 6);
+          const hariStr = HARI_SHORT[dow] || '';
+          const isSelected = (d === selectedMonitoringDay);
+
+          dayPillsHtml += `
+            <button onclick="setMonitoringDay(${d})"
+              class="flex-shrink-0 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all flex flex-col items-center min-w-[48px] ${
+                isSelected
+                  ? (isHoliday ? 'bg-rose-600 border-rose-600 text-white shadow-md' : 'bg-brand-600 border-brand-600 text-white shadow-md scale-[1.03]')
+                  : (isHoliday ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100')
+              }">
+              <span class="text-[10px] opacity-80 uppercase tracking-wider">${hariStr}</span>
+              <span class="text-sm font-black leading-tight">${d}</span>
+            </button>
+          `;
+        });
+
+        const startDayText = currentWeekDays[0] || '';
+        const endDayText   = currentWeekDays[currentWeekDays.length - 1] || '';
+
+        container.innerHTML = `
+          <div class="flex items-center space-x-2 overflow-x-auto no-scrollbar py-1 flex-1 pr-2">
+            <button onclick="setTodayAsMonitoringDay()" class="flex-shrink-0 px-3 py-2 bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold rounded-xl text-xs border border-brand-200/80 transition-colors flex items-center gap-1.5">
+              <i class="fa-solid fa-location-crosshairs text-xs"></i>
+              <span>Hari Ini</span>
+            </button>
+            <div class="h-6 w-px bg-slate-200 flex-shrink-0"></div>
+
+            <div class="flex items-center space-x-1 flex-shrink-0">
+              <button onclick="changeHarianWeekGroup(-1, ${totalGroups})" ${harianWeekGroupIndex === 0 ? 'disabled class="p-1.5 bg-slate-100 text-slate-300 rounded-lg cursor-not-allowed"' : 'class="p-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-lg shadow-2xs"'}>
+                <i class="fa-solid fa-chevron-left text-xs"></i>
+              </button>
+              <span class="text-[11px] font-bold text-slate-600 px-1 text-center min-w-[90px]">
+                Mg ${harianWeekGroupIndex + 1} (${startDayText}-${endDayText})
+              </span>
+              <button onclick="changeHarianWeekGroup(1, ${totalGroups})" ${harianWeekGroupIndex === totalGroups - 1 ? 'disabled class="p-1.5 bg-slate-100 text-slate-300 rounded-lg cursor-not-allowed"' : 'class="p-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-lg shadow-2xs"'}>
+                <i class="fa-solid fa-chevron-right text-xs"></i>
+              </button>
+            </div>
+
+            <div class="h-6 w-px bg-slate-200 flex-shrink-0"></div>
+            ${dayPillsHtml}
+          </div>
+
+          <div class="flex items-center space-x-1.5 flex-shrink-0 bg-slate-100 p-1 rounded-xl border border-slate-200/60 text-xs">
+            <button onclick="setDisplayFormatHarian('cards')" class="px-2.5 py-1 rounded-lg ${displayFormatHarian === 'cards' ? 'bg-white text-brand-700 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'}">
+              <i class="fa-solid fa-grip-vertical mr-1"></i>Kartu
+            </button>
+            <button onclick="setDisplayFormatHarian('table')" class="px-2.5 py-1 rounded-lg ${displayFormatHarian === 'table' ? 'bg-white text-brand-700 font-bold shadow-2xs' : 'text-slate-600 hover:text-slate-900'}">
+              <i class="fa-solid fa-table-list mr-1"></i>Tabel
+            </button>
+          </div>
+        `;
+      } else if (monitoringPeriod === 'mingguan') {
+        const weekGroups = buildCalendarWeekGroups(activeDays, currentBulan, currentTahun);
+        if (selectedMonitoringWeek > weekGroups.length) {
+          selectedMonitoringWeek = Math.max(1, weekGroups.length);
+        }
+
+        let weekTabsHtml = '';
+        weekGroups.forEach((group, idx) => {
+          const wNum = idx + 1;
+          const startD = group[0];
+          const endD = group[group.length - 1];
+          const isSelected = (wNum === selectedMonitoringWeek);
+
+          weekTabsHtml += `
+            <button onclick="setMonitoringWeek(${wNum})"
+              class="px-3.5 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
+                isSelected
+                  ? 'bg-brand-600 border-brand-600 text-white shadow-md shadow-brand-600/20'
+                  : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+              }">
+              Minggu ${wNum} (Tgl ${startD} - ${endD})
+            </button>
+          `;
+        });
+
+        container.innerHTML = `
+          <div class="flex items-center space-x-2 overflow-x-auto no-scrollbar py-1 flex-1">
+            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider flex-shrink-0 mr-1">Pilih Minggu Kalender:</span>
+            ${weekTabsHtml}
+          </div>
+        `;
+      } else {
+        container.innerHTML = `
+          <div class="flex items-center justify-between w-full text-xs text-slate-600">
+            <span class="font-medium flex items-center gap-1.5">
+              <i class="fa-solid fa-circle-info text-brand-600"></i>
+              Matriks Bulanan dipartisi per <strong>Minggu Kalender (Senin s/d Minggu)</strong> agar selalu pas 1 layar.
+            </span>
+          </div>
+        `;
+      }
+    }
+
+    function changeHarianWeekGroup(delta, totalGroups) {
+      harianWeekGroupIndex = Math.max(0, Math.min(totalGroups - 1, harianWeekGroupIndex + delta));
+      const activeDays = cachedMonitoringData ? cachedMonitoringData.activeDays : [];
+      const currentBulan = Number(document.getElementById('globalMonthSelect').value);
+      const currentTahun = Number(document.getElementById('globalYearSelect').value);
+      const weekGroups = buildCalendarWeekGroups(activeDays, currentBulan, currentTahun);
+
+      if (weekGroups[harianWeekGroupIndex] && weekGroups[harianWeekGroupIndex].length > 0) {
+        selectedMonitoringDay = weekGroups[harianWeekGroupIndex][0];
+      }
+      renderPeriodSubNav();
+      renderMonitoringView();
+    }
+
+    function setMonitoringDay(dayNum) {
+      selectedMonitoringDay = dayNum;
+      renderPeriodSubNav();
+      renderMonitoringView();
+    }
+
+    function setTodayAsMonitoringDay() {
+      initSelectedDayAndWeek();
+      renderPeriodSubNav();
+      renderMonitoringView();
+    }
+
+    function setMonitoringWeek(weekNum) {
+      selectedMonitoringWeek = weekNum;
+      tableCurrentPage = 1;
+      renderPeriodSubNav();
+      renderMonitoringView();
+    }
+
+    function setDisplayFormatHarian(fmt) {
+      displayFormatHarian = fmt;
+      renderPeriodSubNav();
+      renderMonitoringView();
+    }
+
+    function changeTablePage(delta, totalPages) {
+      tableCurrentPage = Math.max(1, Math.min(totalPages, tableCurrentPage + delta));
+      renderMonitoringView();
+    }
+
+    /**
+     * =========================================================================
+     * MONITORING RENDERING & CELL RULE LOGIC
+     * =========================================================================
+     */
+    async function loadMonitoringData(jenis) {
+      const bulan = document.getElementById('globalMonthSelect').value;
+      const tahun = document.getElementById('globalYearSelect').value;
+      showLoader(true);
+
+      try {
+        const res = await callBackend('getMonitoringData', {
+          token: sessionToken,
+          jenis: jenis,
+          bulan: bulan,
+          tahun: tahun,
+          filterRuangan: 'SEMUA',
+          filterStatus: 'SEMUA'
+        });
+        showLoader(false);
+        if (res && res.success) {
+          cachedMonitoringData = res.data;
+          initSelectedDayAndWeek();
+          populateRuanganDropdown();
+          renderPeriodSubNav();
+          renderMonitoringView();
+        } else {
+          handleApiError(res);
+        }
+      } catch (err) {
+        showLoader(false);
+        showToast("Gagal memuat monitoring: " + err.message, "error");
+      }
+    }
+
+    function populateRuanganDropdown() {
+      const selectRuangan = document.getElementById('filterRuangan');
+      const currentSelection = selectRuangan.value;
+      selectRuangan.innerHTML = '<option value="SEMUA">Semua Ruangan</option>';
+      if (cachedMonitoringData && cachedMonitoringData.daftarRuangan) {
+        cachedMonitoringData.daftarRuangan.forEach(r => {
+          const opt = document.createElement('option');
+          opt.value = r;
+          opt.innerText = r;
+          selectRuangan.appendChild(opt);
+        });
+      }
+      if (currentSelection) selectRuangan.value = currentSelection;
+    }
+
+    function getFilteredMonitoringItems() {
+      if (!cachedMonitoringData || !cachedMonitoringData.items) return [];
+
+      const filterRuanganVal = document.getElementById('filterRuangan').value;
+      const filterStatusVal  = document.getElementById('filterStatus').value;
+      const searchVal         = document.getElementById('searchKegiatan').value.toLowerCase().trim();
+
+      return cachedMonitoringData.items.filter(item => {
+        if (filterRuanganVal !== 'SEMUA' && item.ruangan !== filterRuanganVal) return false;
+        if (searchVal && !item.kegiatan.toLowerCase().includes(searchVal) && !item.ruangan.toLowerCase().includes(searchVal)) return false;
+
+        if (monitoringPeriod === 'harian') {
+          const statusOnDay = item.dailyStatus ? item.dailyStatus[selectedMonitoringDay] : '-';
+          if (filterStatusVal === 'SELESAI' && statusOnDay !== '1') return false;
+          if (filterStatusVal === 'BELUM' && statusOnDay !== '0') return false;
+        } else {
+          const isCompleteAll = item.selesaiCount === item.totalHariAktif && item.totalHariAktif > 0;
+          if (filterStatusVal === 'SELESAI' && !isCompleteAll) return false;
+          if (filterStatusVal === 'BELUM' && isCompleteAll) return false;
+        }
+
+        return true;
+      });
+    }
+
+    function renderMonitoringView() {
+      const container = document.getElementById('monitoringContentArea');
+      if (!container || !cachedMonitoringData) return;
+
+      const filteredItems = getFilteredMonitoringItems();
+
+      if (filteredItems.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white rounded-2xl border border-slate-200 p-10 text-center space-y-2">
+            <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto text-xl">
+              <i class="fa-solid fa-filter"></i>
+            </div>
+            <h4 class="text-sm font-bold text-slate-800">Tidak Ada Item Kegiatan</h4>
+            <p class="text-xs text-slate-500 max-w-sm mx-auto">
+              Tidak ditemukan item checklist aktif yang sesuai dengan filter atau pencarian Anda.
+            </p>
+          </div>
+        `;
+        return;
+      }
+
+      const currentBulan = Number(document.getElementById('globalMonthSelect').value);
+      const currentTahun = Number(document.getElementById('globalYearSelect').value);
+      const weekGroups   = buildCalendarWeekGroups(cachedMonitoringData.activeDays || [], currentBulan, currentTahun);
+
+      if (monitoringPeriod === 'harian') {
+        if (displayFormatHarian === 'cards') {
+          renderHarianCardView(container, filteredItems);
+        } else {
+          renderTableMatrixView(container, filteredItems, [selectedMonitoringDay]);
+        }
+      } else if (monitoringPeriod === 'mingguan') {
+        const weekDays = weekGroups[selectedMonitoringWeek - 1] || [];
+        if (weekDays.length === 0) {
+          container.innerHTML = `
+            <div class="bg-white rounded-2xl border border-slate-200 p-8 text-center text-xs text-slate-400">
+              Tidak ada hari kerja pada Minggu ${selectedMonitoringWeek}.
+            </div>
+          `;
+          return;
+        }
+        renderTableMatrixView(container, filteredItems, weekDays);
+      } else {
+        // Mode Bulanan: Pagination per Minggu Kalender (Tampilan 1 Layar Penuh)
+        renderTableMatrixView(container, filteredItems, null, weekGroups);
+      }
+    }
+
+    /**
+     * TAMPILAN HARIAN — CARD LIST VIEW (Pas 1 Layar & Penanganan Sabtu/Minggu Libur)
+     */
+    function renderHarianCardView(container, items) {
+      const dayNum = selectedMonitoringDay;
+      const currentBulan = Number(document.getElementById('globalMonthSelect').value);
+      const currentTahun = Number(document.getElementById('globalYearSelect').value);
+      const dateObj = new Date(currentTahun, currentBulan - 1, dayNum);
+
+      const dow = dateObj.getDay(); // 0=Minggu, 6=Sabtu
+      const isHoliday = (dow === 0 || dow === 6); // Sabtu & Minggu = Libur
+      const bulanText = document.getElementById('globalMonthSelect').options[currentBulan - 1].text;
+      const hariName  = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][dow] || '';
+      const fullDateStr = `${hariName}, ${dayNum} ${bulanText} ${currentTahun}`;
+
+      const now = new Date();
+      const todayNum   = now.getDate();
+      const todayMonth = now.getMonth() + 1;
+      const todayYear  = now.getFullYear();
+
+      const isToday = (dayNum === todayNum && currentBulan === todayMonth && currentTahun === todayYear);
+      const isPastDate = (new Date(currentTahun, currentBulan - 1, dayNum) < new Date(todayYear, todayMonth - 1, todayNum));
+
+      if (isHoliday) {
+        container.innerHTML = `
+          <div class="bg-gradient-to-br from-rose-50 to-orange-50 rounded-2xl border border-rose-200/80 p-8 text-center space-y-3">
+            <div class="w-16 h-16 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto text-2xl shadow-sm">
+              <i class="fa-solid fa-umbrella-beach"></i>
+            </div>
+            <div>
+              <span class="px-3 py-1 bg-rose-600 text-white font-bold rounded-full text-[11px] uppercase tracking-wider">HARI LIBUR (Bebas Tugas)</span>
+              <h3 class="text-lg font-black text-slate-900 mt-2">${escapeHtml(fullDateStr)}</h3>
+              <p class="text-xs text-slate-600 max-w-md mx-auto mt-1 leading-relaxed">
+                Hari <strong>${hariName}</strong> adalah hari libur kerja. Seluruh kegiatan checklist monitoring tidak wajib diisi pada hari ini.
+              </p>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      const grouped = {};
+      items.forEach(it => {
+        const rName = it.ruangan || 'Umum';
+        if (!grouped[rName]) grouped[rName] = [];
+        grouped[rName].push(it);
+      });
+
+      let activeRedCount = 0;
+      let doneTodayCount = 0;
+      items.forEach(it => {
+        const st = it.dailyStatus ? it.dailyStatus[dayNum] : '-';
+        if (st === '0') activeRedCount++;
+        if (st === '1') doneTodayCount++;
+      });
+
+      let html = `
+        <div class="space-y-4">
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="px-2.5 py-0.5 rounded-md ${isToday ? 'bg-brand-600 text-white font-bold' : 'bg-slate-100 text-slate-700 font-semibold'} text-xs">
+                  ${isToday ? 'Hari Ini' : (isPastDate ? 'Tanggal Lampau' : 'Tanggal Mendatang')}
+                </span>
+                <span class="text-xs font-bold text-slate-900">${escapeHtml(fullDateStr)}</span>
+              </div>
+              <p class="text-xs text-slate-500 mt-1">
+                ${isToday
+                  ? '<strong class="text-brand-600">Centang Hari Ini:</strong> Bebas tandai selesai atau batalkan jika terjadi salah klik.'
+                  : '<strong class="text-slate-700">Tanggal Lampau:</strong> Data TRUE telah dikunci otomatis dan tidak dapat diubah.'}
+              </p>
+            </div>
+
+            <div class="flex items-center space-x-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+              <div class="text-right">
+                <p class="text-xs font-bold text-slate-800">${doneTodayCount} Selesai / ${activeRedCount} Wajib Dicentang</p>
+                <p class="text-[10px] text-slate-500 font-medium">Status Checklist Aktif</p>
+              </div>
+              <div class="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-black text-xs shadow-md">
+                ${doneTodayCount}
+              </div>
+            </div>
+          </div>
+      `;
+
+      Object.keys(grouped).forEach(rName => {
+        const roomItems = grouped[rName];
+
+        html += `
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-4 space-y-2">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+              <div class="flex items-center space-x-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-brand-600"></span>
+                <h4 class="text-xs font-bold text-slate-900 uppercase tracking-wider">${escapeHtml(rName)}</h4>
+              </div>
+            </div>
+
+            <div class="space-y-2 pt-1">
+        `;
+
+        roomItems.forEach(item => {
+          const st = item.dailyStatus ? item.dailyStatus[dayNum] : '-';
+          const colIndex = (item.colMapping && item.colMapping[dayNum]) ? item.colMapping[dayNum] : (dayNum + 1);
+
+          if (st === '1') {
+            if (isToday) {
+              html += `
+                <div onclick="toggleCheck(${item.sheetRowIndex}, ${colIndex}, false, ${dayNum})"
+                  title="Klik untuk membatalkan centang (TRUE -> FALSE)"
+                  class="group flex items-center justify-between p-3.5 rounded-xl border border-emerald-300 bg-emerald-50/70 hover:bg-rose-50/80 hover:border-rose-300 cursor-pointer transition-all active:scale-[0.99] shadow-2xs">
+                  <div class="flex items-center space-x-3 min-w-0 pr-2">
+                    <div class="w-7 h-7 rounded-lg bg-emerald-500 group-hover:bg-rose-500 text-white flex items-center justify-center text-xs flex-shrink-0 transition-colors shadow-xs">
+                      <i class="fa-solid fa-check group-hover:hidden"></i>
+                      <i class="fa-solid fa-xmark hidden group-hover:inline"></i>
+                    </div>
+                    <span class="text-xs font-semibold text-slate-800 line-through group-hover:no-underline decoration-slate-400 truncate">
+                      ${escapeHtml(item.kegiatan)}
+                    </span>
+                  </div>
+                  <span class="px-2.5 py-1 rounded-lg bg-emerald-100 group-hover:bg-rose-100 text-emerald-800 group-hover:text-rose-700 text-[10px] font-bold flex-shrink-0 transition-colors">
+                    <span class="group-hover:hidden">✓ TRUE (Bisa Batal)</span>
+                    <span class="hidden group-hover:inline">Batalkan Centang</span>
+                  </span>
+                </div>
+              `;
+            } else {
+              html += `
+                <div class="flex items-center justify-between p-3.5 rounded-xl border border-emerald-200/80 bg-emerald-50/40 cursor-not-allowed transition-all opacity-95">
+                  <div class="flex items-center space-x-3 min-w-0 pr-2">
+                    <div class="w-7 h-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-xs flex-shrink-0 shadow-xs">
+                      <i class="fa-solid fa-check"></i>
+                    </div>
+                    <span class="text-xs font-semibold text-slate-800 line-through decoration-slate-400 truncate">
+                      ${escapeHtml(item.kegiatan)}
+                    </span>
+                  </div>
+                  <span class="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-[10px] font-bold flex-shrink-0 flex items-center gap-1">
+                    <i class="fa-solid fa-lock text-[9px]"></i>
+                    <span>🔒 TRUE (Dikunci)</span>
+                  </span>
+                </div>
+              `;
+            }
+          } else if (st === '0') {
+            html += `
+              <div onclick="toggleCheck(${item.sheetRowIndex}, ${colIndex}, true, ${dayNum})"
+                class="group flex items-center justify-between p-3.5 rounded-xl border-2 border-rose-200 bg-rose-50/40 hover:border-emerald-500 hover:bg-emerald-50/40 cursor-pointer transition-all active:scale-[0.99] shadow-2xs">
+                <div class="flex items-center space-x-3 min-w-0 pr-2">
+                  <div class="w-7 h-7 rounded-lg border-2 border-rose-400 group-hover:border-emerald-500 bg-white flex items-center justify-center text-xs text-transparent group-hover:text-emerald-600 flex-shrink-0 transition-all">
+                    <i class="fa-solid fa-check"></i>
+                  </div>
+                  <span class="text-xs font-medium text-slate-900 group-hover:text-emerald-900 leading-snug">
+                    ${escapeHtml(item.kegiatan)}
+                  </span>
+                </div>
+                <button class="px-3 py-1.5 rounded-lg bg-rose-600 group-hover:bg-emerald-600 text-white text-[11px] font-bold transition-all flex items-center gap-1 flex-shrink-0 shadow-xs">
+                  <span>Centang Selesai</span>
+                  <i class="fa-solid fa-check text-[10px]"></i>
+                </button>
+              </div>
+            `;
+          } else {
+            html += `
+              <div class="flex items-center justify-between p-3 rounded-xl border border-slate-200/60 bg-slate-50 text-slate-400 opacity-60">
+                <div class="flex items-center space-x-3 min-w-0 pr-2">
+                  <span class="w-7 text-center font-bold text-slate-300">—</span>
+                  <span class="text-xs font-medium text-slate-500 truncate">${escapeHtml(item.kegiatan)}</span>
+                </div>
+                <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-200/60 text-slate-500">Bebas Tugas</span>
+              </div>
+            `;
+          }
+        });
+
+        html += `</div></div>`;
+      });
+
+      html += `</div>`;
+      container.innerHTML = html;
+    }
+
+    /**
+     * TAMPILAN MATRIKS TABEL (Dengan Week-Based Pagination agar pas 1 layar tanpa scroll)
+     */
+    function renderTableMatrixView(container, items, targetDays, weekGroups = null) {
+      const currentBulan = Number(document.getElementById('globalMonthSelect').value);
+      const currentTahun = Number(document.getElementById('globalYearSelect').value);
+
+      const now = new Date();
+      const todayNum   = now.getDate();
+      const todayMonth = now.getMonth() + 1;
+      const todayYear  = now.getFullYear();
+
+      let pagedDays = [];
+      let totalPages = 1;
+
+      if (weekGroups && weekGroups.length > 0) {
+        totalPages = weekGroups.length;
+        tableCurrentPage = Math.min(tableCurrentPage, totalPages);
+        pagedDays = weekGroups[tableCurrentPage - 1] || [];
+      } else {
+        pagedDays = targetDays || [];
+        totalPages = 1;
+        tableCurrentPage = 1;
+      }
+
+      let html = `
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-3 p-4">
+          <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 text-xs">
+            <div class="flex items-center space-x-2">
+              <span class="font-bold text-slate-700">Tanggal Ditampilkan:</span>
+              <span class="px-2.5 py-0.5 rounded-md bg-brand-100 text-brand-800 font-bold">
+                Tgl ${pagedDays[0] || ''} s/d ${pagedDays[pagedDays.length - 1] || ''}
+              </span>
+            </div>
+
+            ${totalPages > 1 ? `
+              <div class="flex items-center space-x-2">
+                <span class="text-slate-500 font-medium hidden sm:inline">Minggu ${tableCurrentPage} dari ${totalPages}</span>
+                <button onclick="changeTablePage(-1, ${totalPages})" ${tableCurrentPage === 1 ? 'disabled class="px-2.5 py-1 bg-slate-100 text-slate-300 rounded-lg cursor-not-allowed"' : 'class="px-2.5 py-1 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg font-bold shadow-2xs"'}>
+                  <i class="fa-solid fa-chevron-left mr-1"></i>Sebelumnya
+                </button>
+                <button onclick="changeTablePage(1, ${totalPages})" ${tableCurrentPage === totalPages ? 'disabled class="px-2.5 py-1 bg-slate-100 text-slate-300 rounded-lg cursor-not-allowed"' : 'class="px-2.5 py-1 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg font-bold shadow-2xs"'}>
+                  Selanjutnya<i class="fa-solid fa-chevron-right ml-1"></i>
+                </button>
+              </div>
+            ` : ''}
+          </div>
+
+          <div class="w-full overflow-hidden rounded-xl border border-slate-200">
+            <table class="w-full text-left border-collapse table-fixed text-xs">
+              <thead class="bg-slate-100 text-slate-700 font-bold uppercase text-[10px] border-b border-slate-200">
+                <tr>
+                  <th class="p-2 w-8 text-center">No</th>
+                  <th class="p-2 w-28 sm:w-36">Ruangan</th>
+                  <th class="p-2">Kegiatan</th>
+      `;
+
+      pagedDays.forEach(d => {
+        const dateObj = new Date(currentTahun, currentBulan - 1, d);
+        const dow = dateObj.getDay();
+        const isHol = (dow === 0 || dow === 6);
+        const hariStr = HARI_SHORT[dow] || '';
+
+        html += `
+          <th class="p-1 text-center w-10 sm:w-12 ${isHol ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-700'}">
+            <div class="text-[9px] font-semibold uppercase leading-none">${hariStr}</div>
+            <div class="text-xs font-black mt-0.5">${d}</div>
+          </th>
+        `;
+      });
+
+      html += `
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 text-xs">
+      `;
+
+      items.forEach((item, idx) => {
+        html += `
+          <tr class="hover:bg-slate-50/80 transition-colors">
+            <td class="p-2 text-center font-bold text-slate-400 text-[11px]">${idx + 1}</td>
+            <td class="p-2 font-semibold text-slate-800 truncate" title="${escapeHtml(item.ruangan)}">
+              <span class="px-1.5 py-0.5 rounded text-[10px] badge-ruang truncate inline-block max-w-full">
+                ${escapeHtml(item.ruangan)}
+              </span>
+            </td>
+            <td class="p-2 font-medium text-slate-800">
+              <div class="truncate" title="${escapeHtml(item.kegiatan)}">${escapeHtml(item.kegiatan)}</div>
+            </td>
+        `;
+
+        pagedDays.forEach(d => {
+          const dateObj = new Date(currentTahun, currentBulan - 1, d);
+          const dow = dateObj.getDay();
+          const isHoliday = (dow === 0 || dow === 6);
+          const isToday = (d === todayNum && currentBulan === todayMonth && currentTahun === todayYear);
+          const isPastDate = (dateObj < new Date(todayYear, todayMonth - 1, todayNum));
+
+          const st = item.dailyStatus ? item.dailyStatus[d] : '-';
+          const colIndex = (item.colMapping && item.colMapping[d]) ? item.colMapping[d] : (d + 1);
+
+          if (isHoliday) {
+            html += `<td class="p-1 text-center bg-rose-50/50 text-[10px] font-bold text-rose-400">Libur</td>`;
+          } else if (st === '1') {
+            if (isToday) {
+              html += `
+                <td class="p-1 text-center">
+                  <div onclick="toggleCheck(${item.sheetRowIndex}, ${colIndex}, false, ${d})"
+                    title="Sudah tercentang (Klik untuk batalkan)"
+                    class="check-cell w-5.5 h-5.5 mx-auto rounded bg-emerald-500 text-white flex items-center justify-center text-[10px] cursor-pointer shadow-2xs hover:bg-rose-500 transition-colors">
+                    <i class="fa-solid fa-check"></i>
+                  </div>
+                </td>
+              `;
+            } else {
+              html += `
+                <td class="p-1 text-center">
+                  <div title="🔒 Dikunci (Tanggal Lampau)"
+                    class="check-cell locked w-5.5 h-5.5 mx-auto rounded bg-emerald-600 text-white flex items-center justify-center text-[10px] cursor-not-allowed opacity-90">
+                    <i class="fa-solid fa-check"></i>
+                  </div>
+                </td>
+              `;
+            }
+          } else if (st === '0') {
+            html += `
+              <td class="p-1 text-center">
+                <div onclick="toggleCheck(${item.sheetRowIndex}, ${colIndex}, true, ${d})"
+                  title="Wajib Dicentang (FALSE -> TRUE)"
+                  class="check-cell w-5.5 h-5.5 mx-auto rounded bg-rose-100 border-2 border-rose-500 text-transparent hover:text-emerald-600 hover:bg-emerald-50 cursor-pointer flex items-center justify-center text-[10px]">
+                  <i class="fa-solid fa-check"></i>
+                </div>
+              </td>
+            `;
+          } else {
+            html += `<td class="p-1 text-center text-slate-300 font-bold">—</td>`;
+          }
+        });
+
+        html += `</tr>`;
+      });
+
+      html += `
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+      container.innerHTML = html;
+    }
+
+    /**
+     * Eksekusi Toggle Checklist Status (Handling Same-Day Cancellation & Past-Day Locks)
+     */
+    async function toggleCheck(sheetRowIndex, colIndex, newStatus, dayNum) {
+      if (!cachedMonitoringData || !cachedMonitoringData.items) return;
+      const item = cachedMonitoringData.items.find(i => i.sheetRowIndex === sheetRowIndex);
+      if (!item || dayNum === undefined) return;
+
+      const currentBulan = Number(document.getElementById('globalMonthSelect').value);
+      const currentTahun = Number(document.getElementById('globalYearSelect').value);
+
+      const now = new Date();
+      const todayNum   = now.getDate();
+      const todayMonth = now.getMonth() + 1;
+      const todayYear  = now.getFullYear();
+
+      const isToday = (dayNum === todayNum && currentBulan === todayMonth && currentTahun === todayYear);
+      const cellDate = new Date(currentTahun, currentBulan - 1, dayNum);
+      const currentDate = new Date(todayYear, todayMonth - 1, todayNum);
+      const isPastDate = (cellDate < currentDate);
+
+      const st = item.dailyStatus ? item.dailyStatus[dayNum] : '-';
+
+      if (isPastDate && st === '1') {
+        showToast("Data pada tanggal lampau yang sudah terisi (TRUE) dikunci dan tidak dapat diubah.", "info");
+        return;
+      }
+
+      const targetStatusStr = newStatus ? '1' : '0';
+      const oldStatus = item.dailyStatus[dayNum];
+      item.dailyStatus[dayNum] = targetStatusStr;
+
+      if (oldStatus === '0' && targetStatusStr === '1') {
+        item.selesaiCount = Math.min(item.totalHariAktif, item.selesaiCount + 1);
+        showToast("Berhasil menandai kegiatan selesai!", "success");
+      } else if (oldStatus === '1' && targetStatusStr === '0') {
+        item.selesaiCount = Math.max(0, item.selesaiCount - 1);
+        showToast("Centang dibatalkan (dikembalikan ke Belum Selesai).", "info");
+      }
+
+      renderMonitoringView();
+
+      try {
+        const res = await callBackend('updateMonitoringStatus', {
+          token: sessionToken,
+          sheetRowIndex: sheetRowIndex,
+          colIndex: colIndex,
+          newStatus: newStatus,
+          dayNum: dayNum,
+          bulan: currentBulan,
+          tahun: currentTahun
+        });
+        if (!res || !res.success) {
+          showToast((res && res.message) ? res.message : "Gagal menyimpan ke spreadsheet.", "error");
+          refreshCurrentPage();
+        }
+      } catch (err) {
+        showToast("Kesalahan server: " + err.message, "error");
+        refreshCurrentPage();
+      }
+    }
+
+    /**
+     * =========================================================================
+     * KEAMANAN VIEW & REKAP & DASHBOARD
+     * =========================================================================
+     */
+    async function loadJadwalKeamanan() {
+      const bulan = document.getElementById('globalMonthSelect').value;
+      const tahun = document.getElementById('globalYearSelect').value;
+      showLoader(true);
+
+      try {
+        const res = await callBackend('getJadwalKeamanan', {
+          token: sessionToken,
+          bulan: bulan,
+          tahun: tahun
+        });
+        showLoader(false);
+        if (res && res.success) {
+          cachedKeamananData = res.data;
+          initKeamananSelectedDay();
+          renderJadwalKeamananUI();
+        } else {
+          const msg = (res && res.message) ? res.message : 'Gagal memuat jadwal keamanan.';
+          document.getElementById('keamananScheduleContainer').innerHTML =
+            `<div class="text-center py-10 text-xs text-rose-500"><i class="fa-solid fa-circle-exclamation mr-1"></i>${escapeHtml(msg)}</div>`;
+          showToast(msg, 'error');
+        }
+      } catch (err) {
+        showLoader(false);
+        showToast('Gagal memuat jadwal: ' + err.message, 'error');
+      }
+    }
+
+    function initKeamananSelectedDay() {
+      if (!cachedKeamananData || !cachedKeamananData.jadwal || cachedKeamananData.jadwal.length === 0) {
+        selectedKeamananDay = 1;
+        return;
+      }
+      const today = new Date();
+      const currentBulan = Number(document.getElementById('globalMonthSelect').value);
+      const currentTahun = Number(document.getElementById('globalYearSelect').value);
+      if (today.getMonth() + 1 === currentBulan && today.getFullYear() === currentTahun) {
+        const foundDay = cachedKeamananData.jadwal.find(j => j.tanggal === today.getDate());
+        selectedKeamananDay = foundDay ? today.getDate() : cachedKeamananData.jadwal[0].tanggal;
+      } else {
+        selectedKeamananDay = cachedKeamananData.jadwal[0].tanggal;
+      }
+    }
+
+    function selectKeamananDay(dayNum) {
+      selectedKeamananDay = dayNum;
+      renderJadwalKeamananUI();
+    }
+
+    function renderJadwalKeamananUI() {
+      if (!cachedKeamananData) return;
+      const d = cachedKeamananData;
+
+      document.getElementById('kSum-total').innerText = d.totalHariKerja || 0;
+      document.getElementById('kSum-pagi').innerText  = (d.summary && d.summary.P) || 0;
+      document.getElementById('kSum-sore').innerText  = (d.summary && d.summary.S) || 0;
+      document.getElementById('kSum-malam').innerText = (d.summary && d.summary.M) || 0;
+
+      const scheduleContainer = document.getElementById('keamananScheduleContainer');
+      if (!d.jadwal || d.jadwal.length === 0) {
+        scheduleContainer.innerHTML = `<div class="text-center py-10 text-xs text-slate-400">Tidak ada data jadwal untuk bulan ini.</div>`;
+        document.getElementById('keamananTaskListContainer').innerHTML = '';
+        return;
+      }
+
+      const SHIFT_STYLE = {
+        'P': { bg: 'bg-blue-100',   text: 'text-blue-700',   border: 'border-blue-200',   dot: 'bg-blue-500',   label: 'Pagi'  },
+        'S': { bg: 'bg-amber-100',  text: 'text-amber-700',  border: 'border-amber-200',  dot: 'bg-amber-500',  label: 'Sore'  },
+        'M': { bg: 'bg-indigo-100', text: 'text-indigo-700', border: 'border-indigo-200', dot: 'bg-indigo-500', label: 'Malam' },
+        'O': { bg: 'bg-slate-100',  text: 'text-slate-400',  border: 'border-slate-200',  dot: 'bg-slate-300',  label: 'Libur' }
+      };
+
+      const HARI_MAP = {
+        'Sen': 'Senin', 'Sel': 'Selasa', 'Ra': 'Rabu', 'Ka': 'Kamis',
+        'Ju': 'Jumat',  'Sa': 'Sabtu',   'Mi': 'Minggu'
+      };
+
+      let html = '<div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-2 overflow-x-auto pb-1">';
+
+      d.jadwal.forEach(item => {
+        const kode  = item.kodeShift || 'O';
+        const style = SHIFT_STYLE[kode] || SHIFT_STYLE['O'];
+        const isSelected = (item.tanggal === selectedKeamananDay);
+        const isLibur = (kode === 'O');
+        const hariLengkap = HARI_MAP[item.hari] || item.hari || '';
+
+        let isDoneCount = 0;
+        let dayTaskTotal = 0;
+        if (d.taskItems && !isLibur) {
+          const shiftTasks = d.taskItems.filter(t => {
+            const rUpper = String(t.ruangan || '').toUpperCase();
+            if (kode === 'P') return rUpper.includes('PAGI') || rUpper.includes('JAM KERJA');
+            if (kode === 'S' || kode === 'M') return rUpper.includes('MALAM');
+            return false;
+          });
+          dayTaskTotal = shiftTasks.length;
+          isDoneCount = shiftTasks.filter(t => t.dailyStatus && (t.dailyStatus[item.tanggal] === '1' || t.dailyStatus[item.tanggal] === 1)).length;
+        }
+
+        html += `
+          <div onclick="selectKeamananDay(${item.tanggal})"
+            class="rounded-xl border transition-all cursor-pointer p-2.5 flex flex-col justify-between ${
+              isSelected
+                ? 'bg-gradient-to-b from-indigo-50/90 to-blue-50/60 border-indigo-500 shadow-md ring-2 ring-indigo-400/50 scale-[1.02]'
+                : isLibur
+                  ? 'bg-slate-50/60 border-slate-200/60 hover:bg-slate-100/60 opacity-60'
+                  : 'bg-white border-slate-200/80 hover:border-indigo-300 hover:shadow-xs'
+            }">
+            <div class="flex items-start justify-between">
+              <span class="text-lg font-black ${isSelected ? 'text-indigo-900' : (isLibur ? 'text-slate-400' : 'text-slate-800')} leading-none">${item.tanggal}</span>
+              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${style.bg} ${style.text}">
+                ${style.label}
+              </span>
+            </div>
+            <div class="mt-1.5 flex items-center justify-between text-[10px]">
+              <span class="font-semibold ${isSelected ? 'text-indigo-700' : 'text-slate-400'}">${escapeHtml(hariLengkap)}</span>
+              ${!isLibur && dayTaskTotal > 0 ? `
+                <span class="font-bold ${isDoneCount === dayTaskTotal ? 'text-emerald-600' : 'text-slate-400'}">
+                  ${isDoneCount}/${dayTaskTotal}
+                </span>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      });
+
+      html += '</div>';
+      scheduleContainer.innerHTML = html;
+
+      const taskContainer = document.getElementById('keamananTaskListContainer');
+      const shiftObj = d.jadwal.find(j => j.tanggal === selectedKeamananDay) || { tanggal: selectedKeamananDay, hari: '', kodeShift: 'O' };
+      const shiftKode = shiftObj.kodeShift || 'O';
+      const shiftStyle = SHIFT_STYLE[shiftKode] || SHIFT_STYLE['O'];
+      const hariStr = HARI_MAP[shiftObj.hari] || shiftObj.hari || '';
+
+      const bulanSelect = document.getElementById('globalMonthSelect');
+      const bulanText = bulanSelect.options[bulanSelect.selectedIndex] ? bulanSelect.options[bulanSelect.selectedIndex].text : '';
+      const tahunText = document.getElementById('globalYearSelect').value;
+      const fullDateStr = `${hariStr}, ${selectedKeamananDay} ${bulanText} ${tahunText}`;
+
+      let shiftTitleStr = '';
+      let shiftDescStr = '';
+      if (shiftKode === 'P') {
+        shiftTitleStr = 'Shift Pagi (06.00 – 16.00)';
+        shiftDescStr = 'Menampilkan tugas bagian: PAGI (06.00–07.30) dan SELAMA JAM KERJA (07.30–16.00)';
+      } else if (shiftKode === 'S') {
+        shiftTitleStr = 'Shift Sore (15.30 – 23.30)';
+        shiftDescStr = 'Menampilkan tugas bagian: MALAM';
+      } else if (shiftKode === 'M') {
+        shiftTitleStr = 'Shift Malam (23.00 – 07.30)';
+        shiftDescStr = 'Menampilkan tugas bagian: MALAM';
+      } else {
+        shiftTitleStr = 'Status: LIBUR (Bebas Tugas)';
+        shiftDescStr = 'Tidak ada tugas yang harus dikerjakan pada hari libur.';
+      }
+
+      const allTasks = d.taskItems || [];
+      let filteredTasks = [];
+      if (shiftKode === 'P') {
+        filteredTasks = allTasks.filter(t => {
+          const rUpper = String(t.ruangan || '').toUpperCase();
+          return rUpper.includes('PAGI') || rUpper.includes('JAM KERJA');
+        });
+      } else if (shiftKode === 'S' || shiftKode === 'M') {
+        filteredTasks = allTasks.filter(t => {
+          const rUpper = String(t.ruangan || '').toUpperCase();
+          return rUpper.includes('MALAM');
+        });
+      }
+
+      const totalCount = filteredTasks.length;
+      const completedCount = filteredTasks.filter(t => t.dailyStatus && (t.dailyStatus[selectedKeamananDay] === '1' || t.dailyStatus[selectedKeamananDay] === 1)).length;
+      const percentVal = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+      let taskHtml = `
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-xs font-bold px-2.5 py-1 rounded-lg ${shiftStyle.bg} ${shiftStyle.text} border ${shiftStyle.border}">
+                  <span class="w-1.5 h-1.5 rounded-full ${shiftStyle.dot} inline-block mr-1"></span>
+                  ${shiftTitleStr}
+                </span>
+                <span class="text-xs font-semibold text-slate-700">${escapeHtml(fullDateStr)}</span>
+              </div>
+              <p class="text-xs text-slate-500 mt-1.5">${escapeHtml(shiftDescStr)}</p>
+            </div>
+            ${shiftKode !== 'O' && totalCount > 0 ? `
+              <div class="sm:text-right">
+                <span class="text-xs font-bold text-slate-700">Pencapaian: ${completedCount}/${totalCount} Selesai (${percentVal}%)</span>
+                <div class="w-36 bg-slate-100 rounded-full h-2 mt-1 sm:ml-auto">
+                  <div class="bg-emerald-500 h-2 rounded-full transition-all duration-300" style="width: ${percentVal}%"></div>
+                </div>
+              </div>
+            ` : ''}
+          </div>
+      `;
+
+      if (shiftKode === 'O') {
+        taskHtml += `
+          <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-8 text-center space-y-3">
+            <div class="w-14 h-14 bg-slate-100 text-slate-400 rounded-2xl flex items-center justify-center mx-auto text-2xl">
+              <i class="fa-solid fa-umbrella-beach text-indigo-400"></i>
+            </div>
+            <h4 class="text-sm font-bold text-slate-800">Status: LIBUR (Bebas Tugas)</h4>
+            <p class="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+              Anda tidak memiliki jadwal shift piket keamanan pada <strong class="text-slate-700">${escapeHtml(fullDateStr)}</strong>.
+            </p>
+          </div>
+        `;
+      } else if (filteredTasks.length === 0) {
+        taskHtml += `<div class="p-6 text-center text-slate-400 text-xs">Tidak ada item tugas untuk shift ini.</div>`;
+      } else {
+        const grouped = {};
+        filteredTasks.forEach(t => {
+          const grpName = t.ruangan || 'TUGAS KEAMANAN';
+          if (!grouped[grpName]) grouped[grpName] = [];
+          grouped[grpName].push(t);
+        });
+
+        taskHtml += '<div class="space-y-4 pt-1">';
+        Object.keys(grouped).forEach(grpName => {
+          taskHtml += `
+            <div class="space-y-2">
+              <div class="flex items-center space-x-2 text-xs font-bold text-slate-700 uppercase tracking-wider bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200/60">
+                <i class="fa-solid fa-list-check text-indigo-500"></i>
+                <span>${escapeHtml(grpName)}</span>
+              </div>
+              <div class="space-y-2">
+          `;
+
+          grouped[grpName].forEach(item => {
+            const isChecked = item.dailyStatus && (item.dailyStatus[selectedKeamananDay] === '1' || item.dailyStatus[selectedKeamananDay] === 1);
+            const colIndex  = (item.colMapping && item.colMapping[selectedKeamananDay]) ? item.colMapping[selectedKeamananDay] : (selectedKeamananDay + 1);
+
+            taskHtml += `
+              <div onclick="toggleKeamananTaskCheck(${item.sheetRowIndex}, ${colIndex}, ${!isChecked}, ${selectedKeamananDay})"
+                class="group flex items-start space-x-3.5 p-3.5 rounded-xl border transition-all cursor-pointer ${isChecked ? 'bg-emerald-50/60 border-emerald-200/80' : 'bg-white border-slate-200/80 hover:border-brand-400'}">
+                <div class="w-6 h-6 rounded-lg ${isChecked ? 'bg-emerald-500 text-white' : 'bg-white border border-slate-300 text-transparent'} flex-shrink-0 flex items-center justify-center text-xs mt-0.5">
+                  <i class="fa-solid fa-check text-[10px]"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-xs font-medium ${isChecked ? 'text-slate-700 line-through decoration-slate-400' : 'text-slate-800'} leading-relaxed">
+                    ${escapeHtml(item.kegiatan)}
+                  </p>
+                </div>
+              </div>
+            `;
+          });
+
+          taskHtml += `</div></div>`;
+        });
+        taskHtml += '</div>';
+      }
+
+      taskHtml += '</div>';
+      taskContainer.innerHTML = taskHtml;
+    }
+
+    async function toggleKeamananTaskCheck(sheetRowIndex, colIndex, newStatus, dayNum) {
+      if (cachedKeamananData && cachedKeamananData.taskItems) {
+        const item = cachedKeamananData.taskItems.find(i => i.sheetRowIndex === sheetRowIndex);
+        if (item) {
+          if (!item.dailyStatus) item.dailyStatus = {};
+          item.dailyStatus[dayNum] = newStatus ? '1' : '0';
+        }
+      }
+      renderJadwalKeamananUI();
+      showToast("Status tugas keamanan diperbarui!", "success");
+
+      const currentBulan = Number(document.getElementById('globalMonthSelect').value);
+      const currentTahun = Number(document.getElementById('globalYearSelect').value);
+
+      try {
+        const res = await callBackend('updateMonitoringStatus', {
+          token: sessionToken,
+          sheetRowIndex: sheetRowIndex,
+          colIndex: colIndex,
+          newStatus: newStatus,
+          dayNum: dayNum,
+          bulan: currentBulan,
+          tahun: currentTahun
+        });
+        if (!res || !res.success) {
+          showToast('Gagal menyimpan ke spreadsheet.', 'error');
+          refreshCurrentPage();
+        }
+      } catch (err) {
+        showToast('Kesalahan server: ' + err.message, 'error');
+        refreshCurrentPage();
+      }
+    }
+
+    async function loadDashboardData() {
+      const bulan = document.getElementById('globalMonthSelect').value;
+      const tahun = document.getElementById('globalYearSelect').value;
+      showLoader(true);
+
+      try {
+        const res = await callBackend('getDashboardData', {
+          token: sessionToken,
+          bulan: bulan,
+          tahun: tahun
+        });
+        showLoader(false);
+        if (res && res.success) {
+          renderDashboardUI(res.data);
+        } else {
+          handleApiError(res);
+        }
+      } catch (err) {
+        showLoader(false);
+        showToast("Gagal memuat dashboard: " + err.message, "error");
+      }
+    }
+
+    function renderDashboardUI(d) {
+      document.getElementById('dashTotalCount').innerText = d.totalKegiatan;
+      document.getElementById('dashSelesaiCount').innerText = d.kegiatanSelesai;
+      document.getElementById('dashBelumCount').innerText = d.kegiatanBelum;
+      document.getElementById('dashPersenCount').innerText = d.persenPenyelesaian + '%';
+      document.getElementById('dashProgressBar').style.width = d.persenPenyelesaian + '%';
+
+      renderQuickActions();
+
+      const container = document.getElementById('dashRuanganContainer');
+      if (!d.progressRuangan || d.progressRuangan.length === 0) {
+        container.innerHTML = '<div class="text-center py-6 text-xs text-slate-400">Belum ada data ruangan.</div>';
+        return;
+      }
+
+      let html = '';
+      d.progressRuangan.forEach(r => {
+        html += `
+          <div class="p-3.5 rounded-xl border border-slate-100 hover:border-slate-200 transition-all">
+            <div class="flex items-center justify-between text-xs mb-1.5">
+              <span class="font-bold text-slate-800">${escapeHtml(r.ruangan)}</span>
+              <span class="font-semibold text-slate-600">${r.selesai} / ${r.total} Selesai (${r.persen}%)</span>
+            </div>
+            <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+              <div class="h-full rounded-full ${r.persen === 100 ? 'bg-emerald-500' : 'bg-brand-600'}" style="width: ${r.persen}%"></div>
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    async function loadRekapData() {
+      const bulan = document.getElementById('globalMonthSelect').value;
+      const tahun = document.getElementById('globalYearSelect').value;
+      showLoader(true);
+
+      try {
+        const res = await callBackend('getRekapMonitoring', {
+          token: sessionToken,
+          bulan: bulan,
+          tahun: tahun
+        });
+        showLoader(false);
+        if (res && res.success) {
+          renderRekapCharts(res.data);
+          renderRekapTable(res.data.rekapRuangan);
+        } else {
+          handleApiError(res);
+        }
+      } catch (err) {
+        showLoader(false);
+        showToast("Gagal memuat rekapitulasi: " + err.message, "error");
+      }
+    }
+
+    function renderRekapCharts(data) {
+      const ctxTren = document.getElementById('chartTrenHarian').getContext('2d');
+      if (chartTrenInstance) chartTrenInstance.destroy();
+
+      const labelsHarian = data.rekapHarian.map(h => 'Tgl ' + h.hari);
+      const dataHarian = data.rekapHarian.map(h => h.selesai);
+
+      chartTrenInstance = new Chart(ctxTren, {
+        type: 'line',
+        data: {
+          labels: labelsHarian,
+          datasets: [{
+            label: 'Kegiatan Terlaksana',
+            data: dataHarian,
+            borderColor: '#2563eb',
+            backgroundColor: 'rgba(37, 99, 235, 0.08)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 3,
+            pointHoverRadius: 5
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+
+      const ctxRuang = document.getElementById('chartRuangan').getContext('2d');
+      if (chartRuanganInstance) chartRuanganInstance.destroy();
+
+      const labelsRuang = data.rekapRuangan.map(r => r.ruangan);
+      const dataRuangSelesai = data.rekapRuangan.map(r => r.selesai);
+      const dataRuangTotal = data.rekapRuangan.map(r => r.total);
+
+      chartRuanganInstance = new Chart(ctxRuang, {
+        type: 'bar',
+        data: {
+          labels: labelsRuang,
+          datasets: [
+            {
+              label: 'Selesai',
+              data: dataRuangSelesai,
+              backgroundColor: '#10b981',
+              borderRadius: 6
+            },
+            {
+              label: 'Total Target',
+              data: dataRuangTotal,
+              backgroundColor: '#e2e8f0',
+              borderRadius: 6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'top' } },
+          scales: {
+            y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    function renderRekapTable(listRuangan) {
+      const tbody = document.getElementById('rekapTableBody');
+      if (!listRuangan || listRuangan.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">Belum ada data rekapitulasi.</td></tr>';
+        return;
+      }
+
+      let html = '';
+      listRuangan.forEach(r => {
+        const persen = r.total > 0 ? Math.round((r.selesai / r.total) * 100) : 0;
+        html += `
+          <tr class="hover:bg-slate-50 transition-colors">
+            <td class="p-3.5 font-bold text-slate-800">${escapeHtml(r.ruangan)}</td>
+            <td class="p-3.5 text-center font-medium text-slate-600">${r.itemCount} Item</td>
+            <td class="p-3.5 text-center font-medium text-slate-600">${r.total}</td>
+            <td class="p-3.5 text-center font-bold text-emerald-600">${r.selesai}</td>
+            <td class="p-3.5 text-center font-extrabold ${persen === 100 ? 'text-emerald-600' : 'text-brand-600'}">${persen}%</td>
+            <td class="p-3.5">
+              <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                <div class="h-full rounded-full ${persen === 100 ? 'bg-emerald-500' : 'bg-brand-600'}" style="width: ${persen}%"></div>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+      tbody.innerHTML = html;
+    }
+
+    /**
+     * =========================================================================
+     * PENGATURAN PROFIL & GANTI KREDENSIAL
+     * =========================================================================
+     */
+    function initProfilView() {
+      if (currentUser) {
+        const initial = currentUser.namaPegawai ? currentUser.namaPegawai.charAt(0).toUpperCase() : 'U';
+        document.getElementById('profilBigAvatar').innerText = initial;
+        document.getElementById('profilNamaPegawai').innerText = currentUser.namaPegawai;
+        document.getElementById('profilUsername').innerText = '@' + currentUser.username;
+        document.getElementById('infoNamaLengkap').innerText = currentUser.namaPegawai;
+        document.getElementById('infoUsername').innerText = currentUser.username;
+
+        const editUserInput = document.getElementById('editNewUsername');
+        const form = document.getElementById('formChangeCred');
+        if (form) form.reset();
+        if (editUserInput) editUserInput.value = currentUser.username;
+
+        const msgBox = document.getElementById('changeCredMsg');
+        if (msgBox) msgBox.classList.add('hidden');
+      }
+    }
+
+    async function handleChangeCredentials(event) {
+      event.preventDefault();
+      const oldPassword = document.getElementById('editOldPassword').value.trim();
+      const newUsername = document.getElementById('editNewUsername').value.trim();
+      const newPassword = document.getElementById('editNewPassword').value.trim();
+      const confirmPassword = document.getElementById('editConfirmPassword').value.trim();
+      const btnSubmit = document.getElementById('btnSubmitCred');
+
+      if (!oldPassword) {
+        showCredMessage('Password saat ini wajib diisi untuk verifikasi keamanan.', 'error');
+        return;
+      }
+
+      if (newUsername.length < 3) {
+        showCredMessage('Username baru minimal harus terdiri dari 3 karakter.', 'error');
+        return;
+      }
+
+      if (newPassword) {
+        if (newPassword.length < 4) {
+          showCredMessage('Password baru minimal harus terdiri dari 4 karakter.', 'error');
+          return;
+        }
+        if (newPassword !== confirmPassword) {
+          showCredMessage('Konfirmasi password baru tidak cocok dengan password baru.', 'error');
+          return;
+        }
+      }
+
+      if (newUsername === currentUser.username && !newPassword) {
+        showCredMessage('Tidak ada perubahan pada username maupun password.', 'error');
+        return;
+      }
+
+      btnSubmit.disabled = true;
+      btnSubmit.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i><span>Menyimpan Perubahan...</span>';
+
+      try {
+        const res = await callBackend('changeCredentials', {
+          token: sessionToken,
+          oldPassword: oldPassword,
+          newUsername: newUsername,
+          newPassword: newPassword
+        });
+
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = '<i class="fa-solid fa-floppy-disk text-xs"></i><span>Simpan Perubahan Kredensial</span>';
+
+        if (res && res.success) {
+          if (res.user) {
+            currentUser.username = res.user.username;
+            sessionStorage.setItem('simpelkeb_user', JSON.stringify(currentUser));
+            document.getElementById('profilUsername').innerText = '@' + res.user.username;
+            document.getElementById('infoUsername').innerText = res.user.username;
+          }
+          showToast('Kredensial berhasil diperbarui!', 'success');
+          document.getElementById('formChangeCred').reset();
+          document.getElementById('editNewUsername').value = currentUser.username;
+          showCredMessage(res.message || 'Username dan/atau password berhasil diperbarui.', 'success');
+        } else {
+          showCredMessage(res && res.message ? res.message : 'Gagal mengubah kredensial.', 'error');
+        }
+      } catch (err) {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = '<i class="fa-solid fa-floppy-disk text-xs"></i><span>Simpan Perubahan Kredensial</span>';
+        showCredMessage('Kesalahan server: ' + err.message, 'error');
+      }
+    }
+
+    function showCredMessage(msg, type) {
+      const msgBox = document.getElementById('changeCredMsg');
+      if (!msgBox) return;
+
+      if (type === 'success') {
+        msgBox.className = 'text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 p-3.5 rounded-xl flex items-start space-x-2.5';
+        msgBox.innerHTML = '<i class="fa-solid fa-circle-check text-emerald-600 mt-0.5 flex-shrink-0"></i><span>' + escapeHtml(msg) + '</span>';
+      } else {
+        msgBox.className = 'text-xs text-rose-700 bg-rose-50 border border-rose-200 p-3.5 rounded-xl flex items-start space-x-2.5';
+        msgBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-rose-600 mt-0.5 flex-shrink-0"></i><span>' + escapeHtml(msg) + '</span>';
+      }
+      msgBox.classList.remove('hidden');
+    }
+
+    function toggleCredPassword(inputId, iconId) {
+      const input = document.getElementById(inputId);
+      const icon = document.getElementById(iconId);
+      if (!input || !icon) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fa-solid fa-eye-slash text-xs';
+      } else {
+        input.type = 'password';
+        icon.className = 'fa-solid fa-eye text-xs';
+      }
+    }
+
+    function showToast(message, type = 'info') {
+      const toast = document.getElementById('toastNotification');
+      const toastMsg = document.getElementById('toastMessage');
+      const toastIcon = document.getElementById('toastIcon');
+
+      toastMsg.innerText = message;
+
+      if (type === 'success') {
+        toastIcon.className = "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-white bg-emerald-600";
+        toastIcon.innerHTML = '<i class="fa-solid fa-check"></i>';
+      } else if (type === 'error') {
+        toastIcon.className = "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-white bg-rose-600";
+        toastIcon.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+      } else {
+        toastIcon.className = "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-white bg-blue-600";
+        toastIcon.innerHTML = '<i class="fa-solid fa-info"></i>';
+      }
+
+      toast.classList.remove('translate-x-full');
+      setTimeout(() => {
+        closeToast();
+      }, 3500);
+    }
+
+    function closeToast() {
+      document.getElementById('toastNotification').classList.add('translate-x-full');
+    }
+
+    function showLoader(show) {
+      const loader = document.getElementById('globalLoader');
+      if (show) loader.classList.remove('hidden');
+      else loader.classList.add('hidden');
+    }
+
+    function togglePasswordVisibility() {
+      const input = document.getElementById('loginPassword');
+      const icon = document.getElementById('eyeIcon');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+      } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+      }
+    }
+
+    function handleApiError(res) {
+      if (res && res.message && res.message.includes("Sesi")) {
+        showToast(res.message, "error");
+        showLoginPage();
+      } else {
+        showToast((res && res.message) ? res.message : "Terjadi kesalahan.", "error");
+      }
+    }
+
+    function escapeHtml(text) {
+      if (!text) return "";
+      return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    /**
+     * =========================================================================
+     * MOCK DATA GENERATOR
+     * =========================================================================
+     */
+    function buildMockActiveDays() {
+      const activeDays = [];
+      const colMapping = {};
+      let spreadsheetCol = 2;
+      for (let d = 1; d <= 30; d++) {
+        activeDays.push(d);
+        colMapping[d] = spreadsheetCol;
+        spreadsheetCol++;
+      }
+      return { activeDays, colMapping, daysInMonth: 30 };
+    }
+
+    function getMockDashboardData() {
+      return {
+        namaPegawai: currentUser ? currentUser.namaPegawai : 'Slamet Riyadi',
+        jenis: employeeJenis || 'Kebersihan',
+        totalKegiatan: 418,
+        kegiatanSelesai: 112,
+        kegiatanBelum: 306,
+        persenPenyelesaian: 27,
+        progressRuangan: [
+          { ruangan: 'RUANG SEKRETARIS PIMPINAN', selesai: 30, total: 88, persen: 34 },
+          { ruangan: 'RUANG STATISTIK PRODUKSI', selesai: 28, total: 88, persen: 32 },
+          { ruangan: 'KORIDOR ATAS (R.VICON S/D R. PRODUKSI)', selesai: 22, total: 66, persen: 33 },
+          { ruangan: 'WC PRIA LANTAI ATAS', selesai: 16, total: 55, persen: 29 },
+          { ruangan: 'RUANG RB/ZI', selesai: 10, total: 66, persen: 15 }
+        ],
+        totalItemMonitoring: 19
+      };
+    }
+
+    function getMockMonitoringData(jenis) {
+      const { activeDays, colMapping, daysInMonth } = buildMockActiveDays();
+      const totalHariAktif = activeDays.length;
+
+      const kebersihanItems = [
+        { row: 5,  ruangan: 'RUANG SEKRETARIS PIMPINAN', kegiatan: 'Membersihkan dan mengelap meja dan kursi', isDaily: true, doneUpTo: 1 },
+        { row: 6,  ruangan: 'RUANG SEKRETARIS PIMPINAN', kegiatan: 'Membuang sampah', isDaily: true, doneUpTo: 0 },
+        { row: 7,  ruangan: 'RUANG SEKRETARIS PIMPINAN', kegiatan: 'Memastikan ketersediaan tempat sampah diruangan', isDaily: true, doneUpTo: 0 },
+        { row: 8,  ruangan: 'RUANG SEKRETARIS PIMPINAN', kegiatan: 'Memastikan tempat sampah diberi plastik sampah', isDaily: true, doneUpTo: 0 },
+        { row: 9,  ruangan: 'RUANG SEKRETARIS PIMPINAN', kegiatan: 'Membersihkan dan mengelap kaca pintu', isDaily: true, doneUpTo: 0 },
+        { row: 10, ruangan: 'RUANG SEKRETARIS PIMPINAN', kegiatan: 'Semprot Pengharum ruangan', isDaily: true, doneUpTo: 0 },
+        { row: 11, ruangan: 'RUANG SEKRETARIS PIMPINAN', kegiatan: 'Cek Air galon pada dispenser, segera ganti jika habis', isDaily: true, doneUpTo: 0 },
+        { row: 12, ruangan: 'RUANG SEKRETARIS PIMPINAN', kegiatan: 'Membersihkan dispenser air secara berkala', periodicDays: [4, 5, 11, 12, 18, 19, 25, 26], doneUpTo: 0 },
+        { row: 13, ruangan: 'RUANG SEKRETARIS PIMPINAN', kegiatan: 'Membersihkan dan mengelap kaca dan ambalan jendela dalam ruangan', periodicDays: [5, 12, 19, 26], doneUpTo: 0 },
+        { row: 14, ruangan: 'RUANG SEKRETARIS PIMPINAN', kegiatan: 'Membersihkan sawang/ sarang laba-laba di area dinding dan plafond', periodicDays: [5, 12, 19, 26], doneUpTo: 0 },
+        { row: 17, ruangan: 'RUANG KEPALA', kegiatan: 'Menyapu dan mengepel lantai', isDaily: true, doneUpTo: 0 },
+        { row: 18, ruangan: 'RUANG KEPALA', kegiatan: 'Membersihkan dan mengelap meja, kursi dan PC', isDaily: true, doneUpTo: 0 },
+        { row: 25, ruangan: 'RUANG STATISTIK PRODUKSI', kegiatan: 'Menyapu dan mengepel lantai', isDaily: true, doneUpTo: 0 },
+        { row: 26, ruangan: 'RUANG STATISTIK PRODUKSI', kegiatan: 'Membersihkan dan mengelap meja, kursi dan PC', isDaily: true, doneUpTo: 0 }
+      ];
+
+      const pelayananItems = [
+        { row: 5,  ruangan: 'LOBBY & RESEPSIONIS', kegiatan: 'Menyambut tamu dengan senyum, sapa, dan salam sesuai standar PST', isDaily: true, doneUpTo: 1 },
+        { row: 6,  ruangan: 'LOBBY & RESEPSIONIS', kegiatan: 'Memastikan buku tamu digital terisi dengan lengkap', isDaily: true, doneUpTo: 0 },
+        { row: 7,  ruangan: 'LOBBY & RESEPSIONIS', kegiatan: 'Memeriksa ketersediaan brosur dan leaflet informasi di meja resepsionis', isDaily: true, doneUpTo: 0 },
+        { row: 8,  ruangan: 'RUANG PELAYANAN STATISTIK (PST)', kegiatan: 'Memastikan komputer layanan PST berfungsi dan bersih', isDaily: true, doneUpTo: 0 },
+        { row: 9,  ruangan: 'RUANG PELAYANAN STATISTIK (PST)', kegiatan: 'Merapikan dokumen dan formulir permohonan data', isDaily: true, doneUpTo: 0 },
+        { row: 10, ruangan: 'RUANG PELAYANAN STATISTIK (PST)', kegiatan: 'Memeriksa kebersihan dan kerapian ruang tunggu PST', isDaily: true, doneUpTo: 0 }
+      ];
+
+      const baseItems = (jenis === 'Pelayanan') ? pelayananItems : kebersihanItems;
+
+      const items = baseItems.map(it => {
+        const dailyStatus = {};
+        let selesaiCount = 0;
+
+        activeDays.forEach(d => {
+          const dateObj = new Date(2026, 8, d); // Sep 2026
+          const dow = dateObj.getDay();
+          const isHoliday = (dow === 0 || dow === 6);
+
+          if (isHoliday) {
+            dailyStatus[d] = '-';
+          } else if (it.isDaily) {
+            if (d <= it.doneUpTo) {
+              dailyStatus[d] = '1';
+              selesaiCount++;
+            } else {
+              dailyStatus[d] = '0';
+            }
+          } else if (it.periodicDays) {
+            if (it.periodicDays.includes(d)) {
+              if (d <= it.doneUpTo) {
+                dailyStatus[d] = '1';
+                selesaiCount++;
+              } else {
+                dailyStatus[d] = '0';
+              }
+            } else {
+              dailyStatus[d] = '-';
+            }
+          } else {
+            dailyStatus[d] = '0';
+          }
+        });
+
+        return {
+          sheetRowIndex: it.row,
+          ruangan: it.ruangan,
+          jenis: jenis,
+          kegiatan: it.kegiatan,
+          dailyStatus,
+          colMapping,
+          totalHariAktif,
+          selesaiCount
+        };
+      });
+
+      const ruanganSet = [...new Set(baseItems.map(it => it.ruangan))];
+
+      return {
+        namaPegawai: currentUser ? currentUser.namaPegawai : 'Slamet Riyadi',
+        jenis: jenis,
+        daysInMonth,
+        activeDays,
+        items,
+        daftarRuangan: ruanganSet
+      };
+    }
+
+    function getMockJadwalKeamanan() {
+      const DAYS_IN_SEPT = 30;
+      const HARI_SEQ = ['Sel','Ra','Ka','Ju','Sa','Mi','Sen','Sel','Ra','Ka','Ju','Sa','Mi','Sen',
+                         'Sel','Ra','Ka','Ju','Sa','Mi','Sen','Sel','Ra','Ka','Ju','Sa','Mi','Sen',
+                         'Sel','Ra'];
+      const SHIFT_SEQ = ['S','P','P','O','M','M','S','P','P','O','M','M','S','P','P','O','M','M',
+                          'S','P','P','O','M','M','S','P','P','O','M','M'];
+      const jadwal = Array.from({ length: DAYS_IN_SEPT }, (_, i) => ({
+        tanggal: i + 1,
+        hari: HARI_SEQ[i] || '',
+        kodeShift: SHIFT_SEQ[i] || 'O',
+        namaShift: { P:'Pagi', S:'Sore', M:'Malam', O:'Libur' }[SHIFT_SEQ[i]] || 'Libur',
+        isLibur: SHIFT_SEQ[i] === 'O'
+      }));
+
+      const summary = { P: 0, S: 0, M: 0, O: 0 };
+      jadwal.forEach(j => { if (j.kodeShift in summary) summary[j.kodeShift]++; });
+
+      const colMapping = {};
+      for (let d = 1; d <= 30; d++) colMapping[d] = d + 1;
+
+      const rawTasks = [
+        { row: 5,  ruangan: 'PAGI (06.00-07.30)', kegiatan: 'Mengatur lalu lintas dan mambantu menyeberangkan karyawan ke kantor' },
+        { row: 6,  ruangan: 'PAGI (06.00-07.30)', kegiatan: 'Mengatur mengarahkan parkiran kendaraan roda-4' },
+        { row: 7,  ruangan: 'PAGI (06.00-07.30)', kegiatan: 'Menyambut dan membukakan pintu kendaraan pimpinan' },
+        { row: 8,  ruangan: 'PAGI (06.00-07.30)', kegiatan: 'Merapikan susunan kendaraan roda 2 di parkiran samping dan belakang' },
+        { row: 11, ruangan: 'SELAMA JAM KERJA (07.30-16.00)', kegiatan: 'Menyiram tanaman dan bunga pada shift hari libur (pagi dan sore)' },
+        { row: 12, ruangan: 'SELAMA JAM KERJA (07.30-16.00)', kegiatan: 'Patroli keamanan gedung, aset dan karyawan kantor secara berkala setiap 2 jam dan memeriksa area kantor melalui CCTV' },
+        { row: 13, ruangan: 'SELAMA JAM KERJA (07.30-16.00)', kegiatan: 'Mengawasi keluar masuk orang, barang dan kendaraan, mendokumentasikan dan melaporkan hal-hal yang mencurigakan kepada pengawas dan ketua tim secara berjenjang' },
+        { row: 14, ruangan: 'SELAMA JAM KERJA (07.30-16.00)', kegiatan: 'Mengatur lalu lintas dan mambantu menyeberangkan tamu keluar dan masuk arah kantor' },
+        { row: 15, ruangan: 'SELAMA JAM KERJA (07.30-16.00)', kegiatan: 'Mengatur mengarahkan parkiran kendaraan roda-2 dan roda-4 tamu' },
+        { row: 16, ruangan: 'SELAMA JAM KERJA (07.30-16.00)', kegiatan: 'Menyambut dan membukakan pintu kendaraan roda-4 tamu yang datang' },
+        { row: 17, ruangan: 'SELAMA JAM KERJA (07.30-16.00)', kegiatan: 'Memeriksa identitas tamu dan memberikan kartu pengunjung (jika tersedia)' },
+        { row: 18, ruangan: 'SELAMA JAM KERJA (07.30-16.00)', kegiatan: 'Menyambut dan memberi informasi kepada tamu dan mengarahkan tamu ke front office/ ruang tunggu' },
+        { row: 19, ruangan: 'SELAMA JAM KERJA (07.30-16.00)', kegiatan: 'Merapikan susunan kendaraan roda 2 di parkiran samping dan belakang selepas jam istirahat pegawai (pukul 13.00)' },
+        { row: 22, ruangan: 'MALAM', kegiatan: 'Patroli keamanan gedung secara berkala dan memeriksa area kantor melalui CCTV' },
+        { row: 23, ruangan: 'MALAM', kegiatan: 'Memastikan pintu, jendela, dan ruangan penting terkunci dengan baik.' },
+        { row: 24, ruangan: 'MALAM', kegiatan: 'Mencegah potensi bahaya seperti kebakaran atau pencurian.' },
+        { row: 25, ruangan: 'MALAM', kegiatan: 'Menhadapi situasi darurat dan melapor kepada pengawas dan ketua tim secara berjenjang dan pada pihak berwajib jika terjadi gangguan' }
+      ];
+
+      const taskItems = rawTasks.map(t => {
+        const dailyStatus = {};
+        for (let d = 1; d <= 30; d++) dailyStatus[d] = (d <= 3) ? '1' : '0';
+        return {
+          sheetRowIndex: t.row,
+          ruangan: t.ruangan,
+          jenis: 'Keamanan',
+          kegiatan: t.kegiatan,
+          dailyStatus,
+          colMapping
+        };
+      });
+
+      return {
+        namaPegawai: currentUser ? currentUser.namaPegawai : 'Eddy Suryadi',
+        jadwal,
+        summary,
+        totalHariKerja: summary.P + summary.S + summary.M,
+        taskItems
+      };
+    }
+
+    function getMockRekapData() {
+      const { activeDays } = buildMockActiveDays();
+      const rekapHarian = activeDays.map(d => ({
+        hari: d,
+        total: 19,
+        selesai: d <= 5 ? Math.floor(Math.random() * 8) + 4 : 0
+      }));
+
+      return {
+        jenis: 'Kebersihan',
+        rekapHarian,
+        rekapRuangan: [
+          { ruangan: 'RUANG SEKRETARIS PIMPINAN',                  itemCount: 10, total: 10 * activeDays.length, selesai: 32 },
+          { ruangan: 'RUANG KEPALA',                               itemCount: 2,  total: 2 * activeDays.length,  selesai: 12 },
+          { ruangan: 'RUANG STATISTIK PRODUKSI',                   itemCount: 8,  total: 8 * activeDays.length,  selesai: 28 },
+          { ruangan: 'KORIDOR ATAS (R.VICON S/D R. PRODUKSI)',     itemCount: 6,  total: 6 * activeDays.length,  selesai: 22 },
+          { ruangan: 'WC PRIA LANTAI ATAS',                        itemCount: 5,  total: 5 * activeDays.length,  selesai: 16 }
+        ]
+      };
+    }
+  </script>
+</body>
+</html>
