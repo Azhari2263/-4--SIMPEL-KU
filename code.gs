@@ -1,12 +1,11 @@
 /**
- * SISTEM MONITORING PELAYANAN DAN KEBERSIHAN UMUM
+ * SISTEM MONITORING PELAYANAN DAN KEBERSIHAN UMUM (SIMPEL-KU)
  * Backend Engine - Google Apps Script (GAS)
- * Pengaturan:
- * Masukkan ID Google Spreadsheet Anda pada konstanta SPREADSHEET_ID di bawah ini.
  */
 
-const SPREADSHEET_ID = "1c2XUeoYFt_UEqJruBSciKPAIiPEdNoJvTO9epLWVTqs"; // Ganti dengan Spreadsheet ID Anda
+const SPREADSHEET_ID = "1c2XUeoYFt_UEqJruBSciKPAIiPEdNoJvTO9epLWVTqs"; // Spreadsheet ID
 const SESSION_DURATION_SEC = 21600; // Durasi sesi login: 6 Jam
+const CACHE_TTL_SEC = 60;           // Cache parsed data: 60 detik (akselerasi loading)
 
 // Pemetaan nama bulan Indonesia ke angka
 const MONTH_MAP_ID = {
@@ -15,7 +14,7 @@ const MONTH_MAP_ID = {
   'SEPTEMBER': 9, 'OKTOBER': 10, 'NOVEMBER': 11, 'DESEMBER': 12
 };
 
-// Kata kunci baris yang harus di-skip (bukan baris kegiatan dan bukan baris header bagian)
+// Kata kunci baris yang harus di-skip
 const SKIP_ROW_KEYWORDS = [
   'HITUNG SKOR', 'CATATAN', 'SELAIN TUGAS', 'SELAIN TUGAS-TUGAS',
   'SELAMA JAM KERJA MENGGUNAKAN', 'SHIFT PAGI', 'SHIFT SORE', 'SHIFT MALAM'
@@ -30,7 +29,7 @@ function doGet(e) {
   }
   const template = HtmlService.createTemplateFromFile('Index');
   return template.evaluate()
-    .setTitle('Sistem Monitoring Pelayanan & Kebersihan')
+    .setTitle('Sistem Monitoring Pelayanan, Keamanan & Kebersihan (SIMPEL-KU)')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
@@ -53,7 +52,7 @@ function doPost(e) {
 }
 
 /**
- * Handler pemrosesan API untuk integrasi deployment standalone/eksternal
+ * Handler pemrosesan API untuk integrasi deployment standalone / eksternal
  */
 function handleApiRequest(params) {
   var result = { success: false, message: 'Invalid action' };
@@ -102,25 +101,64 @@ function handleApiRequest(params) {
 }
 
 /**
- * Helper untuk menyertakan file HTML parsial (CSS & JS)
+ * Helper untuk menyertakan file HTML parsial
  */
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
 /**
- * Mendapatkan instance Spreadsheet yang aktif
+ * Instance Spreadsheet aktif (dengan fallback aman)
  */
+let _cachedDb = null;
 function getDb() {
-  if (!SPREADSHEET_ID || SPREADSHEET_ID === "MASUKKAN_SPREADSHEET_ID_ANDA_DI_SINI") {
-    return SpreadsheetApp.getActiveSpreadsheet();
+  if (_cachedDb) return _cachedDb;
+  try {
+    if (SPREADSHEET_ID && SPREADSHEET_ID !== "MASUKKAN_SPREADSHEET_ID_ANDA_DI_SINI") {
+      _cachedDb = SpreadsheetApp.openById(SPREADSHEET_ID);
+      return _cachedDb;
+    }
+  } catch (e) {
+    // fallback
   }
-  return SpreadsheetApp.openById(SPREADSHEET_ID);
+  try {
+    _cachedDb = SpreadsheetApp.getActiveSpreadsheet();
+    return _cachedDb;
+  } catch (e) {
+    return null;
+  }
 }
 
 /**
- * Membaca jenis tugas pegawai dari beberapa baris pertama sheet mereka.
- * Mengembalikan salah satu dari: 'PIKET KEBERSIHAN KANTOR' | 'RESEPSIONIS' | 'KEAMANAN KANTOR'
+ * Mencari Sheet secara fleksibel (toleran spasi dan huruf besar/kecil)
+ */
+function findSheet(ss, sheetName) {
+  if (!ss || !sheetName) return null;
+  var sheet = ss.getSheetByName(sheetName);
+  if (sheet) return sheet;
+
+  var norm = function(s) { return String(s || '').toLowerCase().replace(/[\s_\-]/g, ''); };
+  var targetNorm = norm(sheetName);
+  var allSheets = ss.getSheets();
+
+  // 1. Cek kecocokan normalisasi eksak
+  for (var i = 0; i < allSheets.length; i++) {
+    if (norm(allSheets[i].getName()) === targetNorm) {
+      return allSheets[i];
+    }
+  }
+  // 2. Cek kecocokan substring
+  for (var i = 0; i < allSheets.length; i++) {
+    var sNameNorm = norm(allSheets[i].getName());
+    if (sNameNorm && (sNameNorm.indexOf(targetNorm) >= 0 || targetNorm.indexOf(sNameNorm) >= 0)) {
+      return allSheets[i];
+    }
+  }
+  return null;
+}
+
+/**
+ * Membaca jenis tugas pegawai dari sheet mereka
  */
 function getSheetJenis(sheet) {
   try {
@@ -136,7 +174,7 @@ function getSheetJenis(sheet) {
       }
     }
   } catch (e) { /* ignore */ }
-  return 'PIKET KEBERSIHAN KANTOR'; // default
+  return 'PIKET KEBERSIHAN KANTOR';
 }
 
 /**
@@ -149,32 +187,34 @@ function login(username, password) {
     }
 
     const ss = getDb();
-    const userSheet = ss.getSheetByName("Users");
+    if (!ss) {
+      return { success: false, message: "Koneksi database spreadsheet gagal. Pastikan SPREADSHEET_ID valid." };
+    }
 
+    const userSheet = findSheet(ss, "Users");
     if (!userSheet) {
       return { success: false, message: "Sheet 'Users' tidak ditemukan. Harap jalankan inisialisasi database." };
     }
 
     const data = userSheet.getDataRange().getValues();
     if (data.length < 2) {
-      return { success: false, message: "Data pengguna masih kosong." };
+      return { success: false, message: "Data pengguna pada sheet 'Users' masih kosong." };
     }
 
-    // Header index: Username (0), Nama Pegawai (1), Nama Sheet (2), Password (3)
     const cleanUsername = String(username).trim().toLowerCase();
     const cleanPassword = String(password).trim();
 
     let matchedUser = null;
 
     for (let i = 1; i < data.length; i++) {
-      const rowUsername = String(data[i][0]).trim().toLowerCase();
-      const rowNamaPegawai = String(data[i][1]).trim();
-      const rowNamaSheet = String(data[i][2]).trim();
-      const rowPassword = String(data[i][3]).trim();
+      const rowUsername = String(data[i][0] || '').trim().toLowerCase();
+      const rowNamaPegawai = String(data[i][1] || '').trim();
+      const rowNamaSheet = String(data[i][2] || '').trim();
+      const rowPassword = String(data[i][3] || '').trim();
 
       if (rowUsername === cleanUsername && rowPassword === cleanPassword) {
         matchedUser = {
-          username: data[i][0],
+          username: String(data[i][0] || '').trim(),
           namaPegawai: rowNamaPegawai,
           namaSheet: rowNamaSheet
         };
@@ -186,26 +226,29 @@ function login(username, password) {
       return { success: false, message: "Username atau Password salah." };
     }
 
-    // Validasi apakah sheet pegawai benar-benar ada
-    const targetSheet = ss.getSheetByName(matchedUser.namaSheet);
+    // Cari sheet target pegawai secara fleksibel
+    let targetSheet = findSheet(ss, matchedUser.namaSheet);
+    if (!targetSheet) {
+      targetSheet = findSheet(ss, matchedUser.namaPegawai);
+    }
+
     if (!targetSheet) {
       return {
         success: false,
-        message: "Sheet '" + matchedUser.namaSheet + "' untuk pegawai ini tidak ditemukan pada spreadsheet."
+        message: "Sheet '" + matchedUser.namaSheet + "' untuk pegawai " + matchedUser.namaPegawai + " tidak ditemukan pada spreadsheet."
       };
     }
 
-    // Baca jenis tugas dari header sheet pegawai
+    const actualSheetName = targetSheet.getName();
     const jenisSheet = getSheetJenis(targetSheet);
 
-    // Buat token sesi aman menggunakan CacheService
     const token = Utilities.getUuid();
     const cache = CacheService.getScriptCache();
 
     const sessionPayload = {
       username: matchedUser.username,
       namaPegawai: matchedUser.namaPegawai,
-      namaSheet: matchedUser.namaSheet,
+      namaSheet: actualSheetName,
       jenis: jenisSheet,
       loginTime: new Date().toISOString()
     };
@@ -245,11 +288,6 @@ function getSessionUser(token) {
 /**
  * Mengubah Username dan/atau Password Pengguna
  * Aturan Keamanan: Pembatasan maksimal 1 kali perubahan per hari (zona waktu Asia/Jakarta).
- *
- * @param {string} token - Session Token
- * @param {string} oldPassword - Password saat ini
- * @param {string} newUsername - Username baru
- * @param {string} newPassword - Password baru (opsional jika hanya ubah username)
  */
 function changeCredentials(token, oldPassword, newUsername, newPassword) {
   try {
@@ -279,7 +317,11 @@ function changeCredentials(token, oldPassword, newUsername, newPassword) {
     }
 
     const ss = getDb();
-    const userSheet = ss.getSheetByName("Users");
+    if (!ss) {
+      return { success: false, message: "Koneksi database gagal." };
+    }
+
+    const userSheet = findSheet(ss, "Users");
     if (!userSheet) {
       return { success: false, message: "Sheet 'Users' tidak ditemukan pada spreadsheet." };
     }
@@ -298,15 +340,19 @@ function changeCredentials(token, oldPassword, newUsername, newPassword) {
         .setFontWeight("bold");
     }
 
-    // Cari user saat ini berdasarkan username / namaSheet
-    let userRowIndex = -1; // 1-based index baris sheet
+    // Cari baris pengguna saat ini
+    let userRowIndex = -1;
     let currentStoredUser = null;
+    const sessionUserLower = String(session.username || '').trim().toLowerCase();
+    const sessionSheetLower = String(session.namaSheet || '').trim().toLowerCase().replace(/[\s_\-]/g, '');
+    const sessionNamaLower = String(session.namaPegawai || '').trim().toLowerCase().replace(/[\s_\-]/g, '');
 
     for (let i = 1; i < data.length; i++) {
       const uName = String(data[i][0] || '').trim().toLowerCase();
-      const nSheet = String(data[i][2] || '').trim();
+      const nPeg = String(data[i][1] || '').trim().toLowerCase().replace(/[\s_\-]/g, '');
+      const nSheet = String(data[i][2] || '').trim().toLowerCase().replace(/[\s_\-]/g, '');
 
-      if (uName === String(session.username).trim().toLowerCase() || nSheet === session.namaSheet) {
+      if (uName === sessionUserLower || nSheet === sessionSheetLower || nPeg === sessionNamaLower) {
         userRowIndex = i + 1;
         currentStoredUser = {
           username: String(data[i][0] || '').trim(),
@@ -324,17 +370,17 @@ function changeCredentials(token, oldPassword, newUsername, newPassword) {
     }
 
     // Verifikasi kesesuaian password saat ini
-    if (currentStoredUser.password !== cleanOldPass) {
+    if (String(currentStoredUser.password).trim() !== cleanOldPass) {
       return { success: false, message: "Password saat ini salah. Perubahan kredensial ditolak." };
     }
 
-    // Dapatkan tanggal hari ini (Format: YYYY-MM-DD)
+    // Dapatkan tanggal hari ini (Format: YYYY-MM-DD) di WIB
     const todayStr = Utilities.formatDate(new Date(), "Asia/Jakarta", "yyyy-MM-dd");
 
     // Periksa apakah pengguna sudah pernah mengganti kredensial hari ini
     if (currentStoredUser.lastChange) {
       let lastDateStr = currentStoredUser.lastChange;
-      if (lastDateStr.length > 10) {
+      if (lastDateStr.length >= 10) {
         lastDateStr = lastDateStr.substring(0, 10);
       }
       if (lastDateStr === todayStr) {
@@ -364,12 +410,15 @@ function changeCredentials(token, oldPassword, newUsername, newPassword) {
     const targetPassword = cleanNewPass ? cleanNewPass : currentStoredUser.password;
     const nowTimestamp = Utilities.formatDate(new Date(), "Asia/Jakarta", "yyyy-MM-dd HH:mm:ss");
 
-    // Simpan ke sheet Users (Kolom A, D, E)
+    // Simpan perubahan ke sheet Users
     userSheet.getRange(userRowIndex, 1).setValue(targetUsername);
     userSheet.getRange(userRowIndex, 4).setValue(targetPassword);
     userSheet.getRange(userRowIndex, 5).setValue(nowTimestamp);
 
-    // Perbarui data sesi di Cache
+    // FLUSH LANGSUNG KE SPREADSHEET
+    SpreadsheetApp.flush();
+
+    // Perbarui sesi aktif di Cache
     const cache = CacheService.getScriptCache();
     const updatedPayload = {
       username: targetUsername,
@@ -382,7 +431,7 @@ function changeCredentials(token, oldPassword, newUsername, newPassword) {
 
     return {
       success: true,
-      message: "Username dan/atau password berhasil diperbarui!",
+      message: "Username dan/atau password berhasil disimpan ke spreadsheet!",
       user: {
         username: targetUsername,
         namaPegawai: session.namaPegawai,
@@ -406,9 +455,9 @@ function getDashboardData(token, bulan, tahun) {
     }
 
     const ss = getDb();
-    const sheet = ss.getSheetByName(session.namaSheet);
+    const sheet = findSheet(ss, session.namaSheet);
     if (!sheet) {
-      return { success: false, message: "Sheet monitoring tidak ditemukan." };
+      return { success: false, message: "Sheet monitoring '" + session.namaSheet + "' tidak ditemukan." };
     }
 
     const parsedData = readSheetMonitoring(sheet, bulan, tahun);
@@ -463,7 +512,7 @@ function getDashboardData(token, bulan, tahun) {
 }
 
 /**
- * Mengambil Data Matriks Monitoring Lengkap (Kebersihan / Pelayanan / Keamanan)
+ * Mengambil Data Matriks Monitoring Lengkap
  */
 function getMonitoringData(token, jenis, bulan, tahun, filterRuangan, filterStatus) {
   try {
@@ -473,20 +522,18 @@ function getMonitoringData(token, jenis, bulan, tahun, filterRuangan, filterStat
     }
 
     const ss = getDb();
-    const sheet = ss.getSheetByName(session.namaSheet);
+    const sheet = findSheet(ss, session.namaSheet);
     if (!sheet) {
-      return { success: false, message: "Sheet monitoring tidak ditemukan." };
+      return { success: false, message: "Sheet monitoring '" + session.namaSheet + "' tidak ditemukan." };
     }
 
     const parsedData = readSheetMonitoring(sheet, bulan, tahun);
 
-    // Filter Ruangan
     let filteredItems = parsedData.items;
     if (filterRuangan && filterRuangan !== "SEMUA") {
       filteredItems = filteredItems.filter(item => item.ruangan === filterRuangan);
     }
 
-    // Filter Status (Selesai / Belum)
     if (filterStatus && filterStatus !== "SEMUA") {
       filteredItems = filteredItems.filter(item => {
         const isCompleted = item.selesaiCount === item.totalHariAktif && item.totalHariAktif > 0;
@@ -515,11 +562,7 @@ function getMonitoringData(token, jenis, bulan, tahun, filterRuangan, filterStat
 }
 
 /**
- * Toggle Status Checklist — Menyimpan langsung ke kolom spreadsheet yang tepat
- * @param {string} token - Session token
- * @param {number} rowIndex - Baris spreadsheet (1-based) dari item kegiatan
- * @param {number} colIndex - Kolom spreadsheet (1-based) untuk tanggal yang diklik
- * @param {boolean} newStatus - Status baru: true = selesai, false = belum
+ * Toggle Status Checklist
  */
 function updateMonitoringStatus(token, rowIndex, colIndex, newStatus, dayNum, monthNum, yearNum) {
   try {
@@ -529,15 +572,14 @@ function updateMonitoringStatus(token, rowIndex, colIndex, newStatus, dayNum, mo
     }
 
     const ss = getDb();
-    const sheet = ss.getSheetByName(session.namaSheet);
+    const sheet = findSheet(ss, session.namaSheet);
     if (!sheet) {
       return { success: false, message: "Sheet tidak ditemukan." };
     }
 
     const targetRow = Number(rowIndex);
-    const targetCol = Number(colIndex); // Kolom spreadsheet aktual (1-based)
+    const targetCol = Number(colIndex);
 
-    // Cek tanggal cell vs tanggal hari ini
     const now = new Date();
     const todayNum = now.getDate();
     const todayMonth = now.getMonth() + 1;
@@ -550,18 +592,25 @@ function updateMonitoringStatus(token, rowIndex, colIndex, newStatus, dayNum, mo
     const cellDate = new Date(targetYear, targetMonth - 1, targetDay);
     const currentDate = new Date(todayYear, todayMonth - 1, todayNum);
 
-    // Cek nilai cell saat ini pada spreadsheet
     const currentVal = sheet.getRange(targetRow, targetCol).getValue();
     const isAlreadyTrue = (currentVal === true || currentVal === 1 || currentVal === '1' || currentVal === '✓');
 
-    // Jika cell bertanggal lampau (sebelum hari ini) DAN sudah TRUE, kunci pengubahan
     if (cellDate < currentDate && isAlreadyTrue && (newStatus === false || newStatus === 0 || newStatus === '0' || !newStatus)) {
       return { success: false, message: "Data pada tanggal lampau yang sudah diisi (TRUE) tidak dapat diubah kembali." };
     }
 
-    // Simpan sebagai boolean sesuai format Excel asli (TRUE/FALSE)
     const cellValue = (newStatus === true || newStatus === 1 || newStatus === "1" || newStatus === "✓") ? true : false;
     sheet.getRange(targetRow, targetCol).setValue(cellValue);
+    
+    // FLUSH LANGSUNG KE SPREADSHEET
+    SpreadsheetApp.flush();
+
+    // Hapus cache parsed sheet agar request berikutnya selalu up-to-date
+    try {
+      const cache = CacheService.getScriptCache();
+      const cacheKey = "cache_m_" + sheet.getName() + "_" + targetMonth + "_" + targetYear;
+      cache.remove(cacheKey);
+    } catch (ce) { /* ignore */ }
 
     return { success: true, message: "Status berhasil diperbarui." };
   } catch (err) {
@@ -570,7 +619,7 @@ function updateMonitoringStatus(token, rowIndex, colIndex, newStatus, dayNum, mo
 }
 
 /**
- * Mengambil Data Rekapitulasi Lengkap untuk Visualisasi dan Chart
+ * Mengambil Data Rekapitulasi Lengkap
  */
 function getRekapMonitoring(token, bulan, tahun) {
   try {
@@ -580,21 +629,17 @@ function getRekapMonitoring(token, bulan, tahun) {
     }
 
     const ss = getDb();
-    const sheet = ss.getSheetByName(session.namaSheet);
+    const sheet = findSheet(ss, session.namaSheet);
     if (!sheet) {
       return { success: false, message: "Sheet tidak ditemukan." };
     }
 
     const parsedData = readSheetMonitoring(sheet, bulan, tahun);
 
-    // Rekap Berdasarkan Jenis
     const rekapJenis = {};
-
-    // Rekap Berdasarkan Ruangan
     const rekapRuangan = {};
 
-    // Rekap Per Hari — berdasarkan activeDays (bukan 1..31)
-    const rekapHarianMap = {}; // dayNum → index
+    const rekapHarianMap = {};
     const rekapHarian = parsedData.activeDays.map((d, i) => {
       rekapHarianMap[d] = i;
       return { hari: d, total: 0, selesai: 0 };
@@ -613,7 +658,6 @@ function getRekapMonitoring(token, bulan, tahun) {
       rekapRuangan[item.ruangan].selesai += item.selesaiCount;
       rekapRuangan[item.ruangan].itemCount += 1;
 
-      // Iterasi hari aktif
       parsedData.activeDays.forEach(d => {
         const isDone = item.dailyStatus[d] === "1" || item.dailyStatus[d] === 1;
         const idx = rekapHarianMap[d];
@@ -641,9 +685,7 @@ function getRekapMonitoring(token, bulan, tahun) {
 }
 
 /**
- * Mengambil Jadwal Piket Keamanan dari sheet JadwalPiketSecurity.
- * Membaca jadwal berdasarkan nama pegawai yang login dan bulan yang dipilih.
- * Kode shift: P=Pagi, S=Sore, M=Malam, O=Libur
+ * Mengambil Jadwal Piket Keamanan dari sheet JadwalPiketSecurity
  */
 function getJadwalKeamanan(token, bulan, tahun) {
   try {
@@ -653,7 +695,7 @@ function getJadwalKeamanan(token, bulan, tahun) {
     }
 
     const ss = getDb();
-    const jadwalSheet = ss.getSheetByName("JadwalPiketSecurity");
+    const jadwalSheet = findSheet(ss, "JadwalPiketSecurity");
     if (!jadwalSheet) {
       return { success: false, message: "Sheet 'JadwalPiketSecurity' tidak ditemukan." };
     }
@@ -661,17 +703,11 @@ function getJadwalKeamanan(token, bulan, tahun) {
     const values = jadwalSheet.getDataRange().getValues();
     const selectedMonth = bulan ? Number(bulan) : (new Date().getMonth() + 1);
 
-    // Struktur JadwalPiketSecurity:
-    // Baris 2 (index 1): 'NO', 'KEAMANAN KANTOR', ..., 'SEPTEMBER', ...
-    // Baris 3 (index 2): tanggal (angka)
-    // Baris 4 (index 3): nama hari
-    // Baris 5+ (index 4+): data pegawai dan kode shift
-    const HEADER_ROW  = 1; // 0-based index
+    const HEADER_ROW  = 1;
     const DATE_ROW    = 2;
     const DAY_ROW     = 3;
     const DATA_START  = 4;
 
-    // Bangun peta bulan → kolom awal
     const monthStartColMap = {};
     const headerRow = values[HEADER_ROW] || [];
     headerRow.forEach(function(cell, colIdx) {
@@ -686,7 +722,6 @@ function getJadwalKeamanan(token, bulan, tahun) {
       return { success: false, message: "Data jadwal untuk bulan ini belum tersedia di spreadsheet." };
     }
 
-    // Tentukan rentang akhir kolom bulan yang dipilih
     const dateRow = values[DATE_ROW] || [];
     var monthEndCol = dateRow.length - 1;
     Object.values(monthStartColMap).forEach(function(startCol) {
@@ -695,9 +730,8 @@ function getJadwalKeamanan(token, bulan, tahun) {
       }
     });
 
-    // Kumpulkan kolom untuk bulan terpilih (hanya kolom dengan tanggal valid)
     const dayRow = values[DAY_ROW] || [];
-    const schedCols = []; // [{colIdx, tanggal, hari}]
+    const schedCols = [];
     for (var c = monthStartCol; c <= monthEndCol; c++) {
       var dayNum = dateRow[c];
       if (typeof dayNum === 'number' && dayNum >= 1 && dayNum <= 31) {
@@ -709,7 +743,6 @@ function getJadwalKeamanan(token, bulan, tahun) {
       }
     }
 
-    // Cari baris pegawai berdasarkan namaPegawai (kolom B = index 1)
     const namaPegawai = session.namaPegawai;
     var employeeRowIdx = -1;
     var normalize = function(s) { return String(s || '').toLowerCase().replace(/[^a-z]/g, ''); };
@@ -718,12 +751,10 @@ function getJadwalKeamanan(token, bulan, tahun) {
     for (var r = DATA_START; r < values.length; r++) {
       var namaCel = String(values[r][1] || '').trim();
       if (!namaCel) continue;
-      // Exact match atau normalized match
       if (normalize(namaCel) === normTarget) {
         employeeRowIdx = r;
         break;
       }
-      // Partial: nama depan sama
       var firstWordTarget = normTarget.split('')[0] !== '' ? normTarget.substring(0, 4) : '';
       if (firstWordTarget && normalize(namaCel).indexOf(firstWordTarget) === 0) {
         employeeRowIdx = r;
@@ -738,7 +769,6 @@ function getJadwalKeamanan(token, bulan, tahun) {
     const SHIFT_LABEL = { 'P': 'Pagi', 'S': 'Sore', 'M': 'Malam', 'O': 'Libur' };
     const empRow = values[employeeRowIdx];
 
-    // Bangun array jadwal
     const jadwal = schedCols.map(function(col) {
       var kode = String(empRow[col.colIdx] || '').trim().toUpperCase();
       return {
@@ -750,15 +780,13 @@ function getJadwalKeamanan(token, bulan, tahun) {
       };
     });
 
-    // Rekapitulasi shift
     var summary = { P: 0, S: 0, M: 0, O: 0 };
     jadwal.forEach(function(j) {
       if (j.kodeShift in summary) summary[j.kodeShift]++;
     });
 
-    // Membaca data tugas dari sheet pegawai
     let taskItems = [];
-    const empSheet = ss.getSheetByName(session.namaSheet);
+    const empSheet = findSheet(ss, session.namaSheet);
     if (empSheet) {
       const parsedTasks = readSheetMonitoring(empSheet, bulan, tahun);
       taskItems = parsedTasks.items || [];
@@ -796,29 +824,28 @@ function logout(token) {
 }
 
 /**
- * ═══════════════════════════════════════════════════════════════
- * ENGINE PARSER DATA SPREADSHEET — VERSI BARU
- * Mendukung struktur spreadsheet nyata:
- *
- * Baris 1 : Judul (misal: "PIKET KEBERSIHAN KANTOR") + nama bulan
- *            di kolom pertama setiap blok bulan
- * Baris 2 : Nomor tanggal (1-31). Kolom dengan nilai None = libur/separator
- * Baris 3 : Nama hari (Sel, Ra, Ka, Ju, Sa, Mi, Sen)
- * Baris 4+: Baris kegiatan (teks + True/False di kolom tanggal)
- *            atau header ruangan/section (hanya teks, semua kolom tanggal = null)
- * ═══════════════════════════════════════════════════════════════
+ * ENGINE PARSER DATA SPREADSHEET (Dengan Caching Pintar untuk Akselerasi Cepat)
  */
 function readSheetMonitoring(sheet, bulan, tahun) {
+  const now = new Date();
+  const selectedMonth = bulan ? Number(bulan) : (now.getMonth() + 1);
+  const selectedYear = tahun ? Number(tahun) : now.getFullYear();
+
+  // Cek cache memori untuk menghindari re-parsing berulang
+  const cacheKey = "cache_m_" + sheet.getName() + "_" + selectedMonth + "_" + selectedYear;
+  try {
+    const cached = CacheService.getScriptCache().get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch (ce) { /* ignore cache read error */ }
+
   const values = sheet.getDataRange().getValues();
   if (!values || values.length < 3) {
     return { items: [], daysInMonth: 30, activeDays: [], daftarRuangan: [], headers: [], jenis: 'Kebersihan' };
   }
 
-  const now = new Date();
-  const selectedMonth = bulan ? Number(bulan) : (now.getMonth() + 1);
-
-  // ── LANGKAH 1: Temukan baris tanggal ──────────────────────────────────────
-  // Baris tanggal ditandai dengan banyak angka 1-31 (setidaknya 20 angka)
+  // 1. Temukan baris tanggal
   let dateRowIdx = -1;
   for (let r = 0; r < Math.min(6, values.length); r++) {
     const numCount = values[r].filter(v => typeof v === 'number' && v >= 1 && v <= 31).length;
@@ -829,7 +856,6 @@ function readSheetMonitoring(sheet, bulan, tahun) {
   }
 
   if (dateRowIdx === -1) {
-    // Fallback: cari baris dengan paling banyak angka 1-31
     let maxCount = 0;
     for (let r = 0; r < Math.min(6, values.length); r++) {
       const numCount = values[r].filter(v => typeof v === 'number' && v >= 1 && v <= 31).length;
@@ -840,9 +866,9 @@ function readSheetMonitoring(sheet, bulan, tahun) {
     }
   }
 
-  const monthHeaderRowIdx = dateRowIdx - 1; // Baris di atas baris tanggal = nama bulan
+  const monthHeaderRowIdx = dateRowIdx - 1;
 
-  // ── LANGKAH 2: Ekstrak jenis monitoring dari baris judul ──────────────────
+  // 2. Ekstrak jenis monitoring
   let jenis = 'Kebersihan';
   for (let r = 0; r <= Math.max(0, monthHeaderRowIdx); r++) {
     for (let c = 0; c < Math.min(values[r].length, 5); c++) {
@@ -853,8 +879,8 @@ function readSheetMonitoring(sheet, bulan, tahun) {
     }
   }
 
-  // ── LANGKAH 3: Bangun peta bulan → kolom awal dari baris nama bulan ───────
-  const monthStartColMap = {}; // monthNum → colIdx (0-based)
+  // 3. Bangun peta bulan
+  const monthStartColMap = {};
   if (monthHeaderRowIdx >= 0) {
     values[monthHeaderRowIdx].forEach((cell, colIdx) => {
       if (cell && typeof cell === 'string') {
@@ -864,7 +890,7 @@ function readSheetMonitoring(sheet, bulan, tahun) {
     });
   }
 
-  // ── LANGKAH 4: Tentukan kolom kegiatan ────────────────────────────────────
+  // 4. Kolom kegiatan
   const dateRow = values[dateRowIdx];
   let firstDateColIdx = -1;
   for (let c = 0; c < dateRow.length; c++) {
@@ -878,23 +904,19 @@ function readSheetMonitoring(sheet, bulan, tahun) {
     return { items: [], daysInMonth: 30, activeDays: [], daftarRuangan: [], headers: [], jenis };
   }
 
-  // Kolom kegiatan = kolom tepat sebelum kolom tanggal pertama
   const kegiatanColIdx = firstDateColIdx > 0 ? firstDateColIdx - 1 : 0;
 
-  // ── LANGKAH 5: Tentukan rentang kolom untuk bulan yang dipilih ────────────
+  // 5. Rentang kolom bulan terpilih
   let monthStartCol = monthStartColMap[selectedMonth];
 
   if (monthStartCol === undefined) {
     if (Object.keys(monthStartColMap).length === 0) {
-      // Sheet tanpa header bulan (single-month) → gunakan kolom pertama tanggal
       monthStartCol = firstDateColIdx;
     } else {
-      // Bulan tidak ada di sheet ini
       return { items: [], daysInMonth: 30, activeDays: [], daftarRuangan: [], headers: [], jenis };
     }
   }
 
-  // Cari akhir kolom bulan yang dipilih
   let monthEndCol = dateRow.length - 1;
   Object.values(monthStartColMap).forEach(startCol => {
     if (startCol > monthStartCol && startCol <= monthEndCol) {
@@ -902,14 +924,14 @@ function readSheetMonitoring(sheet, bulan, tahun) {
     }
   });
 
-  // ── LANGKAH 6: Bangun peta hari → kolom spreadsheet aktual (1-based) ──────
-  const dayColMap = {}; // dayNum → spreadsheet col (1-based, untuk getRange)
+  // 6. Peta hari -> kolom aktual
+  const dayColMap = {};
   const activeDays = [];
 
   for (let c = monthStartCol; c <= monthEndCol; c++) {
     const dayNum = dateRow[c];
     if (typeof dayNum === 'number' && dayNum >= 1 && dayNum <= 31) {
-      dayColMap[dayNum] = c + 1; // 1-based spreadsheet column
+      dayColMap[dayNum] = c + 1;
       activeDays.push(dayNum);
     }
   }
@@ -917,8 +939,8 @@ function readSheetMonitoring(sheet, bulan, tahun) {
   activeDays.sort((a, b) => a - b);
   const daysInMonth = activeDays.length > 0 ? Math.max.apply(null, activeDays) : 30;
 
-  // ── LANGKAH 7: Parse baris kegiatan mulai dari baris setelah nama hari ─────
-  const dataStartRow = dateRowIdx + 2; // Lewati baris tanggal + baris nama hari
+  // 7. Parse baris kegiatan
+  const dataStartRow = dateRowIdx + 2;
   let currentRuangan = 'Umum';
   const items = [];
   const ruanganSet = new Set();
@@ -930,7 +952,6 @@ function readSheetMonitoring(sheet, bulan, tahun) {
 
     if (!kegiatanText) continue;
 
-    // Skip baris yang mengandung kata kunci khusus
     const upperText = kegiatanText.toUpperCase();
     let shouldSkip = false;
     for (let k = 0; k < SKIP_ROW_KEYWORDS.length; k++) {
@@ -941,12 +962,10 @@ function readSheetMonitoring(sheet, bulan, tahun) {
     }
     if (shouldSkip) continue;
 
-    // Deteksi: header ruangan vs baris kegiatan
-    // Header ruangan = ada teks tapi SEMUA kolom tanggal aktif bernilai null (tidak ada True/False)
     let hasCheckboxData = false;
     for (let di = 0; di < activeDays.length; di++) {
       const d = activeDays[di];
-      const val = row[dayColMap[d] - 1]; // 0-based index
+      const val = row[dayColMap[d] - 1];
       if (val === true || val === false) {
         hasCheckboxData = true;
         break;
@@ -954,44 +973,42 @@ function readSheetMonitoring(sheet, bulan, tahun) {
     }
 
     if (!hasCheckboxData) {
-      // Header ruangan/section
       currentRuangan = kegiatanText;
       ruanganSet.add(currentRuangan);
       continue;
     }
 
-    // Baris kegiatan — parse status harian
     ruanganSet.add(currentRuangan);
 
     const dailyStatus = {};
     let selesaiCount = 0;
 
     activeDays.forEach(d => {
-      const colIdx0 = dayColMap[d] - 1; // 0-based index untuk values[]
+      const colIdx0 = dayColMap[d] - 1;
       const val = row[colIdx0];
       if (val === true || val === 1 || val === '1' || val === '✓') {
-        dailyStatus[d] = '1'; // TRUE / Tercentang
+        dailyStatus[d] = '1';
         selesaiCount++;
       } else if (val === false || val === 0 || val === '0') {
-        dailyStatus[d] = '0'; // FALSE / Red Checkbox (Wajib Dicentang)
+        dailyStatus[d] = '0';
       } else {
-        dailyStatus[d] = '-'; // Blank / Grey cell (Bebas Tugas)
+        dailyStatus[d] = '-';
       }
     });
 
     items.push({
-      sheetRowIndex: r + 1,         // 1-based, untuk sheet.getRange(row, col)
+      sheetRowIndex: r + 1,
       ruangan: currentRuangan,
       jenis: jenis,
       kegiatan: kegiatanText,
       dailyStatus: dailyStatus,
-      colMapping: dayColMap,        // dayNum → spreadsheet col (1-based)
+      colMapping: dayColMap,
       totalHariAktif: activeDays.length,
       selesaiCount: selesaiCount
     });
   }
 
-  return {
+  const result = {
     items: items,
     daysInMonth: daysInMonth,
     activeDays: activeDays,
@@ -999,15 +1016,21 @@ function readSheetMonitoring(sheet, bulan, tahun) {
     daftarRuangan: Array.from(ruanganSet),
     jenis: jenis
   };
+
+  // Simpan ke CacheService untuk akselerasi
+  try {
+    CacheService.getScriptCache().put(cacheKey, JSON.stringify(result), CACHE_TTL_SEC);
+  } catch (ce) { /* ignore cache write error */ }
+
+  return result;
 }
 
 /**
  * FUNGSI SETUP DATABASE OTOMATIS
- * Jalankan fungsi ini sekali dari Script Editor untuk mengisi sheet Users
- * dengan seluruh pegawai yang ada di spreadsheet.
  */
 function setupAllUsers() {
   const ss = getDb();
+  if (!ss) return "Koneksi database gagal.";
 
   let userSheet = ss.getSheetByName("Users");
   if (!userSheet) {
@@ -1022,7 +1045,6 @@ function setupAllUsers() {
     .setFontColor("#ffffff")
     .setFontWeight("bold");
 
-  // Daftar lengkap pegawai sesuai sheet yang ada di spreadsheet
   const allUsers = [
     ["dede",           "Nurramadhanial",    "Nurramadhanial",    "dede123",  ""],
     ["slamet",         "Slamet Riyadi",     "SlametRiyadi",      "slamet123", ""],
@@ -1042,14 +1064,11 @@ function setupAllUsers() {
 
   userSheet.getRange(2, 1, allUsers.length, 5).setValues(allUsers);
   userSheet.autoResizeColumns(1, 5);
+  SpreadsheetApp.flush();
 
   return "Setup Users Berhasil! " + allUsers.length + " pengguna telah ditambahkan.";
 }
 
-/**
- * @deprecated Gunakan setupAllUsers() untuk data nyata
- * Fungsi lama untuk keperluan backward-compatibility
- */
 function setupSampleDatabase() {
   return setupAllUsers();
 }
