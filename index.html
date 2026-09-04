@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Sistem Monitoring Pelayanan, Keamanan & Kebersihan Umum (SIMPEL-KU)</title>
+  <title>Sistem Monitoring Pelayanan, Keamanan & Kebersihan Umum (SIMPELKU)</title>
   
   <!-- CDN Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -157,7 +157,7 @@
         <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-700 via-brand-600 to-accent-500 text-white shadow-xl shadow-brand-500/25 mb-4">
           <i class="fa-solid fa-clipboard-check text-2xl"></i>
         </div>
-        <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">SIMPEL-KU</h1>
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">SIMPELKU</h1>
         <p class="text-xs sm:text-sm font-medium text-slate-500 mt-1">Sistem Monitoring Pelayanan, Keamanan, dan Kebersihan Umum</p>
       </div>
 
@@ -208,7 +208,7 @@
         <div class="mt-6 pt-5 border-t border-slate-100 text-center text-xs text-slate-500">
           <p class="flex items-center justify-center gap-1.5">
             <i class="fa-solid fa-shield-halved text-emerald-600"></i>
-            <span>Sesi aman terisolasi per akun pegawai</span>
+            <span>Sesi aman per akun pegawai</span>
           </p>
         </div>
       </div>
@@ -232,7 +232,7 @@
               <i id="sidebarHeaderLogoIcon" class="fa-solid fa-clipboard-check text-sm"></i>
             </button>
             <div class="sidebar-label transition-opacity duration-200 overflow-hidden">
-              <h1 class="text-sm font-bold text-slate-900 tracking-tight truncate">SIMPEL-KU</h1>
+              <h1 class="text-sm font-bold text-slate-900 tracking-tight truncate">SIMPELKU</h1>
               <p class="text-[10px] text-slate-400 font-medium truncate">Monitoring Terpadu</p>
             </div>
           </div>
@@ -354,7 +354,7 @@
               <span class="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[11px] font-semibold tracking-wider uppercase">Sistem Terintegrasi</span>
               <h2 class="text-xl sm:text-2xl font-black mt-2" id="dashWelcomeName">Halo, Pegawai!</h2>
               <p class="text-xs sm:text-sm text-blue-100 mt-1 leading-relaxed">
-                Pantau seluruh checklist kebersihan harian dan standar pelayanan operasional kantor dalam satu tampilan terpadu.
+                Pantau seluruh checklist kebersihan dan keamanan harian, serta standar pelayanan operasional kantor dalam satu tampilan terpadu.
               </p>
             </div>
           </div>
@@ -654,7 +654,7 @@
             <div class="bg-blue-50 border border-blue-200 p-3.5 rounded-xl text-xs text-blue-800 mb-5 flex items-start space-x-2.5">
               <i class="fa-solid fa-circle-info text-blue-600 mt-0.5 flex-shrink-0"></i>
               <div class="leading-relaxed text-[11px]">
-                <strong>Sinkronisasi Langsung:</strong> Perubahan username dan/atau password akan langsung disimpan ke sheet <strong>Users</strong> pada spreadsheet database SIMPEL-KU.
+                <strong>Sinkronisasi Langsung:</strong> Perubahan username dan/atau password akan langsung disimpan ke sheet <strong>Users</strong> pada spreadsheet database SIMPELKU.
               </div>
             </div>
 
@@ -1259,7 +1259,7 @@
         loadMonitoringData('Pelayanan');
       } else if (viewName === 'keamanan') {
         document.getElementById('topbarTitle').innerText   = 'Monitoring Keamanan';
-        document.getElementById('topbarSubtitle').innerText = 'Jadwal piket shift dari JadwalPiketSecurity';
+        document.getElementById('topbarSubtitle').innerText = 'Jadwal piket shift dari Jadwal Piket Security';
         document.getElementById('view-keamanan').classList.remove('hidden');
         loadJadwalKeamanan();
       } else if (viewName === 'rekap') {

@@ -335,8 +335,83 @@ function findEmployeeSheet(ss, namaSheet, namaPegawai, username) {
  * Membaca jenis tugas pegawai dari sheet mereka atau atribut profil atau jadwal keamanan
  */
 function getSheetJenis(sheet, matchedUser, ss) {
-  // 1. Cek apakah pengguna terdaftar pada sheet JadwalPiketSecurity
-  if (matchedUser && ss) {
+  // 1. Cek konten sheet perorangan jika ada (selain sheet Users dan sheet Jadwal)
+  if (sheet) {
+    try {
+      const sName = sheet.getName();
+      const sNameUpper = String(sName || '').toUpperCase();
+      const isJadwalOrUsers = sNameUpper.includes('USERS') || sNameUpper.includes('JADWAL') || sNameUpper.includes('SECURITY');
+
+      if (!isJadwalOrUsers) {
+        const maxCols = Math.min(sheet.getMaxColumns(), 15);
+        const maxRows = Math.min(sheet.getMaxRows(), 10);
+        const vals = sheet.getRange(1, 1, maxRows, maxCols).getValues();
+
+        for (let r = 0; r < vals.length; r++) {
+          for (let c = 0; c < vals[r].length; c++) {
+            const v = String(vals[r][c] || '').toUpperCase().trim();
+            if (v.includes('RESEPSIONIS') || v.includes('PELAYANAN') || v.includes('PST') || v.includes('STANDAR PELAYANAN')) {
+              return 'RESEPSIONIS';
+            }
+            if (v.includes('KEBERSIHAN') || v.includes('KEBERSIHAN KANTOR')) {
+              return 'PIKET KEBERSIHAN KANTOR';
+            }
+            if (v.includes('KEAMANAN') || v.includes('SECURITY')) {
+              return 'KEAMANAN KANTOR';
+            }
+          }
+        }
+
+        if (sNameUpper.includes('RESEPSIONIS') || sNameUpper.includes('PELAYANAN') || sNameUpper.includes('PST')) return 'RESEPSIONIS';
+        if (sNameUpper.includes('KEBERSIHAN')) return 'PIKET KEBERSIHAN KANTOR';
+        if (sNameUpper.includes('KEAMANAN') || sNameUpper.includes('SECURITY')) return 'KEAMANAN KANTOR';
+
+        return 'PIKET KEBERSIHAN KANTOR';
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  // 2. Cek atribut namaSheet atau matchedUser
+  if (matchedUser) {
+    const sNameUpper = String(matchedUser.namaSheet || '').toUpperCase();
+    const uStr = (matchedUser.username + ' ' + matchedUser.namaPegawai + ' ' + (matchedUser.namaSheet || '')).toLowerCase();
+
+    if (sNameUpper.includes('RESEPSIONIS') || sNameUpper.includes('PELAYANAN') || uStr.includes('resepsionis') || uStr.includes('pelayanan') || uStr.includes('pst')) {
+      return 'RESEPSIONIS';
+    }
+    if (sNameUpper.includes('KEBERSIHAN') || uStr.includes('kebersihan')) {
+      return 'PIKET KEBERSIHAN KANTOR';
+    }
+    if (sNameUpper.includes('JADWAL') || sNameUpper.includes('SECURITY') || sNameUpper.includes('KEAMANAN') || uStr.includes('security') || uStr.includes('satpam') || uStr.includes('keamanan')) {
+      return 'KEAMANAN KANTOR';
+    }
+
+    // Daftar nama petugas pelayanan / resepsionis
+    const pelayananNames = [
+      'alfiana ayuni', 'alfiana', 'yuni juniarti', 'yuni', 'rania naila husna', 'rania'
+    ];
+    const userAlpha = getAlphaOnly(matchedUser.namaPegawai) || getAlphaOnly(matchedUser.username);
+    for (let k = 0; k < pelayananNames.length; k++) {
+      if (userAlpha === getAlphaOnly(pelayananNames[k])) {
+        return 'RESEPSIONIS';
+      }
+    }
+
+    // Daftar nama petugas keamanan
+    const securityNames = [
+      'eddy suryadi', 'syarif reza nopriadrian al kadri', 'syarif reza', 'sy reza',
+      'feri yustami', 'ferry yustami', 'rizki fadil', 'rizky fadil',
+      'eko prasetyo', 'agus tetriansyah'
+    ];
+    for (let k = 0; k < securityNames.length; k++) {
+      if (userAlpha === getAlphaOnly(securityNames[k])) {
+        return 'KEAMANAN KANTOR';
+      }
+    }
+  }
+
+  // 3. Cek apakah ada di JadwalPiketSecurity HANYA jika tidak memiliki sheet perorangan
+  if (matchedUser && ss && !sheet) {
     try {
       const jadwalSheet = findJadwalSheet(ss);
       if (jadwalSheet) {
@@ -344,51 +419,6 @@ function getSheetJenis(sheet, matchedUser, ss) {
         const rowInJadwal = findEmployeeRowInJadwal(jVals, matchedUser, 0);
         if (rowInJadwal !== -1) {
           return 'KEAMANAN KANTOR';
-        }
-      }
-    } catch (e) { /* ignore */ }
-  }
-
-  // 2. Cek atribut matchedUser
-  if (matchedUser) {
-    var uStr = (matchedUser.username + ' ' + matchedUser.namaPegawai + ' ' + (matchedUser.namaSheet || '')).toLowerCase();
-    if (uStr.includes('keamanan') || uStr.includes('security') || uStr.includes('satpam')) {
-      return 'KEAMANAN KANTOR';
-    }
-    if (uStr.includes('resepsionis') || uStr.includes('pelayanan') || uStr.includes('pst')) {
-      return 'RESEPSIONIS';
-    }
-
-    // Cek daftar nama petugas keamanan umum
-    const knownSecurity = [
-      'eddy suryadi', 'syarif reza', 'syreza', 'feri yustami', 'feriyustami',
-      'rizki fadil', 'rizkifadil', 'eko prasetyo', 'ekoprasetyo', 'agus tetriansyah',
-      'agustetriansyah', 'eddy', 'reza', 'feri', 'rizki', 'eko', 'agus'
-    ];
-    const userAlpha = getAlphaOnly(matchedUser.namaPegawai) || getAlphaOnly(matchedUser.username);
-    for (let k = 0; k < knownSecurity.length; k++) {
-      if (userAlpha === getAlphaOnly(knownSecurity[k])) {
-        return 'KEAMANAN KANTOR';
-      }
-    }
-  }
-
-  // 3. Cek konten sheet perorangan jika ada
-  if (sheet) {
-    try {
-      var sNameUpper = String(sheet.getName() || '').toUpperCase();
-      if (sNameUpper.includes('KEAMANAN') || sNameUpper.includes('SECURITY')) return 'KEAMANAN KANTOR';
-      if (sNameUpper.includes('RESEPSIONIS') || sNameUpper.includes('PELAYANAN')) return 'RESEPSIONIS';
-
-      const maxCols = Math.min(sheet.getMaxColumns(), 10);
-      const maxRows = Math.min(sheet.getMaxRows(), 10);
-      const vals = sheet.getRange(1, 1, maxRows, maxCols).getValues();
-      for (var r = 0; r < vals.length; r++) {
-        for (var c = 0; c < vals[r].length; c++) {
-          var v = String(vals[r][c] || '').toUpperCase().trim();
-          if (v.indexOf('KEAMANAN') >= 0 || v.indexOf('SECURITY') >= 0) return 'KEAMANAN KANTOR';
-          if (v.indexOf('RESEPSIONIS') >= 0 || v.indexOf('PELAYANAN') >= 0) return 'RESEPSIONIS';
-          if (v.indexOf('KEBERSIHAN') >= 0) return 'PIKET KEBERSIHAN KANTOR';
         }
       }
     } catch (e) { /* ignore */ }
@@ -1013,22 +1043,38 @@ function getRekapMonitoring(token, bulan, tahun) {
 }
 
 /**
+ * Kata kunci baris header / judul yang harus diabaikan saat mencocokkan baris nama pegawai di jadwal piket
+ */
+const IGNORE_HEADER_WORDS = [
+  'JADWAL', 'PIKET', 'KEAMANAN', 'SECURITY', 'SATPAM', 'BULAN', 'TAHUN', 'TANGGAL',
+  'PROVINSI', 'KALIMANTAN', 'KANTOR', 'NOMOR', 'HARI', 'MINGGU', 'SHIFT', 'PAGI',
+  'SORE', 'MALAM', 'LIBUR', 'TOTAL', 'JUMLAH', 'CATATAN', 'KETERANGAN', 'MENGETAHUI',
+  'DIBUAT', 'KEPALA', 'PEJABAT', 'SUBBAGIAN', 'TATA USAHA', 'PENANGGUNG JAWAB',
+  'SELAIN TUGAS', 'SKOR', 'HITUNG'
+];
+
+/**
  * Smart Multi-Tier Matching Pegawai pada Sheet Jadwal Piket
  * Mampu mendeteksi nama lengkap, nama panggilan, nomor urut (1. Reza), alias, dan potongan kata kunci.
  */
 function calculateMatchScore(cellVal, user) {
   if (!cellVal) return 0;
-  
+
   const rawClean = cleanStr(cellVal);
+  if (!rawClean) return 0;
+
+  const upper = rawClean.toUpperCase();
+  for (let k = 0; k < IGNORE_HEADER_WORDS.length; k++) {
+    if (upper.includes(IGNORE_HEADER_WORDS[k])) {
+      if (upper.length > 30 || upper.includes('JADWAL PIKET') || upper.includes('BPS PROVINSI') || upper.includes('TOTAL') || upper.includes('JUMLAH')) {
+        return 0;
+      }
+    }
+  }
+
   const cellNorm = normalizeName(rawClean);
   const cellAlpha = getAlphaOnly(rawClean);
   if (!cellAlpha || cellAlpha.length < 2) return 0;
-
-  const upper = rawClean.toUpperCase();
-  if (upper.includes('TOTAL') || upper.includes('JUMLAH') || upper.includes('KETERANGAN') || 
-      upper.includes('SHIFT') || upper.includes('SKOR') || upper.includes('HITUNG') || upper.includes('SELAMA JAM KERJA')) {
-    return 0;
-  }
 
   const userFull = normalizeName(user.namaPegawai);
   const userFullAlpha = getAlphaOnly(user.namaPegawai);
@@ -1059,18 +1105,12 @@ function calculateMatchScore(cellVal, user) {
   for (let t = 0; t < userTokens.length; t++) {
     const ut = userTokens[t];
     if (cellTokens.indexOf(ut) >= 0 || cellAlpha === ut) {
-      maxTokenScore = Math.max(maxTokenScore, 90);
-    } else if (ut.length >= 4 && (cellAlpha.indexOf(ut) === 0 || cellAlpha.lastIndexOf(ut) === cellAlpha.length - ut.length)) {
-      maxTokenScore = Math.max(maxTokenScore, 85);
-    } else if (ut.length >= 4 && cellAlpha.indexOf(ut) >= 0) {
-      maxTokenScore = Math.max(maxTokenScore, 75);
+      if (cellTokens.length <= 4) {
+        maxTokenScore = Math.max(maxTokenScore, 90);
+      }
     }
   }
   if (maxTokenScore > 0) return maxTokenScore;
-
-  // 5. Substring match
-  if (cellAlpha.length >= 4 && userFullAlpha.indexOf(cellAlpha) >= 0) return 80;
-  if (userFullAlpha.length >= 4 && cellAlpha.indexOf(userFullAlpha) >= 0) return 80;
 
   return 0;
 }
@@ -1083,7 +1123,7 @@ function findEmployeeRowInJadwal(values, session, dataStartRow) {
     const row = values[r];
     if (!row || row.length === 0) continue;
 
-    for (let c = 0; c < Math.min(row.length, 10); c++) {
+    for (let c = 0; c < Math.min(row.length, 6); c++) {
       const cellVal = row[c];
       const score = calculateMatchScore(cellVal, session);
       if (score > bestMatch.score) {
@@ -1094,12 +1134,13 @@ function findEmployeeRowInJadwal(values, session, dataStartRow) {
     if (bestMatch.score === 100) break;
   }
 
-  return (bestMatch.score >= 60) ? bestMatch.rowIdx : -1;
+  return (bestMatch.score >= 85) ? bestMatch.rowIdx : -1;
 }
 
 /**
  * Dynamic Grid Parser untuk Sheet Jadwal Piket
- * Mampu mendeteksi posisi baris tanggal, baris hari, rentang kolom per bulan secara dinamis
+ * Mampu mendeteksi posisi baris tanggal, baris hari, serta mempartisi kolom per bulan
+ * sehingga hanya menampilkan hari aktif untuk bulan terpilih (tidak berulang 105 hari).
  */
 function parseJadwalGrid(values, selectedMonth) {
   if (!values || values.length < 3) return null;
@@ -1152,18 +1193,101 @@ function parseJadwalGrid(values, selectedMonth) {
 
   const dayRow = dayRowIdx !== -1 ? values[dayRowIdx] : [];
 
-  // 3. Bangun daftar kolom jadwal dari dateRow
-  const schedCols = [];
+  // 3. Peta kolom awal per bulan dari baris-baris di atas baris tanggal
+  const monthStartColMap = {};
+  for (let r = 0; r < dateRowIdx; r++) {
+    const row = values[r] || [];
+    for (let c = 0; c < row.length; c++) {
+      const cellVal = row[c];
+      if (cellVal && typeof cellVal === 'string') {
+        const cellUpper = cellVal.trim().toUpperCase();
+        for (const mName in MONTH_MAP_ID) {
+          if (cellUpper === mName || cellUpper.indexOf(mName) >= 0) {
+            const mNum = MONTH_MAP_ID[mName];
+            if (monthStartColMap[mNum] === undefined || c < monthStartColMap[mNum]) {
+              monthStartColMap[mNum] = c;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 4. Deteksi semua kolom tanggal yang valid
+  const allDateCols = [];
   for (let c = 0; c < dateRow.length; c++) {
     const v = dateRow[c];
     const dayNum = typeof v === 'number' ? v : (typeof v === 'string' && /^\d{1,2}$/.test(v.trim()) ? Number(v.trim()) : null);
     if (dayNum !== null && dayNum >= 1 && dayNum <= 31) {
-      schedCols.push({
+      allDateCols.push({
         colIdx: c,
         tanggal: dayNum,
         hari: dayRow[c] ? String(dayRow[c]).trim() : ''
       });
     }
+  }
+
+  if (allDateCols.length === 0) {
+    return { error: "Tidak ada kolom tanggal yang ditemukan." };
+  }
+
+  let targetCols = [];
+
+  // 5. Filter kolom sesuai selectedMonth jika ada monthStartColMap
+  const monthKeys = Object.keys(monthStartColMap).map(Number).sort(function(a, b) { return a - b; });
+
+  if (monthKeys.length > 0 && monthStartColMap[selectedMonth] !== undefined) {
+    const startCol = monthStartColMap[selectedMonth];
+    let nextStartCol = Infinity;
+    for (let k = 0; k < monthKeys.length; k++) {
+      const m = monthKeys[k];
+      if (monthStartColMap[m] > startCol && monthStartColMap[m] < nextStartCol) {
+        nextStartCol = monthStartColMap[m];
+      }
+    }
+
+    targetCols = allDateCols.filter(function(col) {
+      return col.colIdx >= startCol && col.colIdx < nextStartCol;
+    });
+  }
+
+  // 6. Jika tidak ditemukan lewat monthStartColMap, partisi berdasarkan blok siklus tanggal
+  if (targetCols.length === 0) {
+    const blocks = [];
+    let currentBlock = [];
+
+    for (let i = 0; i < allDateCols.length; i++) {
+      const curr = allDateCols[i];
+      const prev = allDateCols[i - 1];
+
+      if (prev) {
+        if ((prev.tanggal >= 28 && curr.tanggal === 1) || (curr.colIdx - prev.colIdx > 3)) {
+          blocks.push(currentBlock);
+          currentBlock = [];
+        }
+      }
+      currentBlock.push(curr);
+    }
+    if (currentBlock.length > 0) {
+      blocks.push(currentBlock);
+    }
+
+    if (blocks.length > 1) {
+      const blockIdx = (selectedMonth - 1) % blocks.length;
+      targetCols = blocks[blockIdx];
+    } else {
+      targetCols = blocks[0] || allDateCols;
+    }
+  }
+
+  // 7. Bersihkan duplikasi tanggal agar pas 1 bulan penuh (28..31 hari)
+  const schedCols = [];
+  for (let i = 0; i < targetCols.length; i++) {
+    const col = targetCols[i];
+    if (schedCols.length >= 28 && col.tanggal === 1) {
+      break;
+    }
+    schedCols.push(col);
   }
 
   const dataStartRow = Math.max(dateRowIdx, dayRowIdx) + 1;
@@ -1367,9 +1491,24 @@ function readSheetMonitoring(sheet, bulan, tahun) {
   for (let r = 0; r <= Math.max(0, monthHeaderRowIdx); r++) {
     for (let c = 0; c < Math.min(values[r].length, 6); c++) {
       const cellVal = String(values[r][c] || '').toUpperCase().trim();
-      if (cellVal.includes('KEBERSIHAN')) { jenis = 'Kebersihan'; }
-      else if (cellVal.includes('RESEPSIONIS') || cellVal.includes('PELAYANAN')) { jenis = 'Pelayanan'; }
-      else if (cellVal.includes('KEAMANAN')) { jenis = 'Keamanan'; }
+      if (cellVal.includes('RESEPSIONIS') || cellVal.includes('PELAYANAN') || cellVal.includes('PST') || cellVal.includes('STANDAR PELAYANAN')) {
+        jenis = 'Pelayanan';
+        break;
+      } else if (cellVal.includes('KEAMANAN') || cellVal.includes('SECURITY')) {
+        jenis = 'Keamanan';
+        break;
+      } else if (cellVal.includes('KEBERSIHAN')) {
+        jenis = 'Kebersihan';
+      }
+    }
+  }
+
+  if (jenis === 'Kebersihan' && sheet) {
+    const sNameUpper = String(sheet.getName() || '').toUpperCase();
+    if (sNameUpper.includes('PELAYANAN') || sNameUpper.includes('RESEPSIONIS') || sNameUpper.includes('PST')) {
+      jenis = 'Pelayanan';
+    } else if (sNameUpper.includes('KEAMANAN') || sNameUpper.includes('SECURITY')) {
+      jenis = 'Keamanan';
     }
   }
 
