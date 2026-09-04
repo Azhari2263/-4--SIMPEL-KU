@@ -645,16 +645,16 @@
                 </h3>
                 <p class="text-xs text-slate-500 mt-0.5">Perbarui kredensial akun login Anda secara mandiri</p>
               </div>
-              <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200/80">
-                1x Per Hari
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200/80">
+                <i class="fa-solid fa-arrows-rotate mr-1"></i> Sinkron Spreadsheet
               </span>
             </div>
 
-            <!-- Banner Peringatan Pembatasan 1x Sehari -->
-            <div class="bg-amber-50 border border-amber-200 p-3.5 rounded-xl text-xs text-amber-800 mb-5 flex items-start space-x-2.5">
-              <i class="fa-solid fa-triangle-exclamation text-amber-600 mt-0.5 flex-shrink-0"></i>
+            <!-- Banner Info Sinkronisasi Spreadsheet -->
+            <div class="bg-blue-50 border border-blue-200 p-3.5 rounded-xl text-xs text-blue-800 mb-5 flex items-start space-x-2.5">
+              <i class="fa-solid fa-circle-info text-blue-600 mt-0.5 flex-shrink-0"></i>
               <div class="leading-relaxed text-[11px]">
-                <strong>Ketentuan Keamanan:</strong> Penggantian username dan/atau password dibatasi maksimal <strong>1 (satu) kali per hari</strong>. Pastikan data yang dimasukkan sudah benar sebelum menyimpan.
+                <strong>Sinkronisasi Langsung:</strong> Perubahan username dan/atau password akan langsung disimpan ke sheet <strong>Users</strong> pada spreadsheet database SIMPEL-KU.
               </div>
             </div>
 
@@ -2331,7 +2331,7 @@
           tahun: currentTahun
         });
         if (!res || !res.success) {
-          showToast('Gagal menyimpan ke spreadsheet.', 'error');
+          showToast((res && res.message) ? res.message : 'Gagal menyimpan ke spreadsheet.', 'error');
           refreshCurrentPage();
         }
       } catch (err) {
@@ -2703,216 +2703,6 @@
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
-    }
-
-    /**
-     * =========================================================================
-     * MOCK DATA GENERATOR
-     * =========================================================================
-     */
-    function buildMockActiveDays() {
-      const activeDays = [];
-      const colMapping = {};
-      let spreadsheetCol = 2;
-      for (let d = 1; d <= 30; d++) {
-        activeDays.push(d);
-        colMapping[d] = spreadsheetCol;
-        spreadsheetCol++;
-      }
-      return { activeDays, colMapping, daysInMonth: 30 };
-    }
-
-    function getMockDashboardData() {
-      return {
-        namaPegawai: currentUser ? currentUser.namaPegawai : 'Slamet Riyadi',
-        jenis: employeeJenis || 'Kebersihan',
-        totalKegiatan: 418,
-        kegiatanSelesai: 112,
-        kegiatanBelum: 306,
-        persenPenyelesaian: 27,
-        progressRuangan: [
-          { ruangan: 'RUANG SEKRETARIS PIMPINAN', selesai: 30, total: 88, persen: 34 },
-          { ruangan: 'RUANG STATISTIK PRODUKSI', selesai: 28, total: 88, persen: 32 },
-          { ruangan: 'KORIDOR ATAS (R.VICON S/D R. PRODUKSI)', selesai: 22, total: 66, persen: 33 },
-          { ruangan: 'WC PRIA LANTAI ATAS', selesai: 16, total: 55, persen: 29 },
-          { ruangan: 'RUANG RB/ZI', selesai: 10, total: 66, persen: 15 }
-        ],
-        totalItemMonitoring: 19
-      };
-    }
-
-    function getMockMonitoringData(jenis) {
-      const { activeDays, colMapping, daysInMonth } = buildMockActiveDays();
-      const totalHariAktif = activeDays.length;
-
-      const kebersihanItems = [
-        { row: 5,  ruangan: 'RUANG SEKRETARIS PIMPINAN', kegiatan: 'Membersihkan dan mengelap meja dan kursi', isDaily: true, doneUpTo: 1 },
-        { row: 6,  ruangan: 'RUANG SEKRETARIS PIMPINAN', kegiatan: 'Membuang sampah', isDaily: true, doneUpTo: 0 },
-        { row: 7,  ruangan: 'RUANG SEKRETARIS PIMPINAN', kegiatan: 'Memastikan ketersediaan tempat sampah diruangan', isDaily: true, doneUpTo: 0 },
-        { row: 8,  ruangan: 'RUANG SEKRETARIS PIMPINAN', kegiatan: 'Memastikan tempat sampah diberi plastik sampah', isDaily: true, doneUpTo: 0 },
-        { row: 9,  ruangan: 'RUANG SEKRETARIS PIMPINAN', kegiatan: 'Membersihkan dan mengelap kaca pintu', isDaily: true, doneUpTo: 0 },
-        { row: 10, ruangan: 'RUANG SEKRETARIS PIMPINAN', kegiatan: 'Semprot Pengharum ruangan', isDaily: true, doneUpTo: 0 },
-        { row: 11, ruangan: 'RUANG SEKRETARIS PIMPINAN', kegiatan: 'Cek Air galon pada dispenser, segera ganti jika habis', isDaily: true, doneUpTo: 0 },
-        { row: 12, ruangan: 'RUANG SEKRETARIS PIMPINAN', kegiatan: 'Membersihkan dispenser air secara berkala', periodicDays: [4, 5, 11, 12, 18, 19, 25, 26], doneUpTo: 0 },
-        { row: 13, ruangan: 'RUANG SEKRETARIS PIMPINAN', kegiatan: 'Membersihkan dan mengelap kaca dan ambalan jendela dalam ruangan', periodicDays: [5, 12, 19, 26], doneUpTo: 0 },
-        { row: 14, ruangan: 'RUANG SEKRETARIS PIMPINAN', kegiatan: 'Membersihkan sawang/ sarang laba-laba di area dinding dan plafond', periodicDays: [5, 12, 19, 26], doneUpTo: 0 },
-        { row: 17, ruangan: 'RUANG KEPALA', kegiatan: 'Menyapu dan mengepel lantai', isDaily: true, doneUpTo: 0 },
-        { row: 18, ruangan: 'RUANG KEPALA', kegiatan: 'Membersihkan dan mengelap meja, kursi dan PC', isDaily: true, doneUpTo: 0 },
-        { row: 25, ruangan: 'RUANG STATISTIK PRODUKSI', kegiatan: 'Menyapu dan mengepel lantai', isDaily: true, doneUpTo: 0 },
-        { row: 26, ruangan: 'RUANG STATISTIK PRODUKSI', kegiatan: 'Membersihkan dan mengelap meja, kursi dan PC', isDaily: true, doneUpTo: 0 }
-      ];
-
-      const pelayananItems = [
-        { row: 5,  ruangan: 'LOBBY & RESEPSIONIS', kegiatan: 'Menyambut tamu dengan senyum, sapa, dan salam sesuai standar PST', isDaily: true, doneUpTo: 1 },
-        { row: 6,  ruangan: 'LOBBY & RESEPSIONIS', kegiatan: 'Memastikan buku tamu digital terisi dengan lengkap', isDaily: true, doneUpTo: 0 },
-        { row: 7,  ruangan: 'LOBBY & RESEPSIONIS', kegiatan: 'Memeriksa ketersediaan brosur dan leaflet informasi di meja resepsionis', isDaily: true, doneUpTo: 0 },
-        { row: 8,  ruangan: 'RUANG PELAYANAN STATISTIK (PST)', kegiatan: 'Memastikan komputer layanan PST berfungsi dan bersih', isDaily: true, doneUpTo: 0 },
-        { row: 9,  ruangan: 'RUANG PELAYANAN STATISTIK (PST)', kegiatan: 'Merapikan dokumen dan formulir permohonan data', isDaily: true, doneUpTo: 0 },
-        { row: 10, ruangan: 'RUANG PELAYANAN STATISTIK (PST)', kegiatan: 'Memeriksa kebersihan dan kerapian ruang tunggu PST', isDaily: true, doneUpTo: 0 }
-      ];
-
-      const baseItems = (jenis === 'Pelayanan') ? pelayananItems : kebersihanItems;
-
-      const items = baseItems.map(it => {
-        const dailyStatus = {};
-        let selesaiCount = 0;
-
-        activeDays.forEach(d => {
-          const dateObj = new Date(2026, 8, d); // Sep 2026
-          const dow = dateObj.getDay();
-          const isHoliday = (dow === 0 || dow === 6);
-
-          if (isHoliday) {
-            dailyStatus[d] = '-';
-          } else if (it.isDaily) {
-            if (d <= it.doneUpTo) {
-              dailyStatus[d] = '1';
-              selesaiCount++;
-            } else {
-              dailyStatus[d] = '0';
-            }
-          } else if (it.periodicDays) {
-            if (it.periodicDays.includes(d)) {
-              if (d <= it.doneUpTo) {
-                dailyStatus[d] = '1';
-                selesaiCount++;
-              } else {
-                dailyStatus[d] = '0';
-              }
-            } else {
-              dailyStatus[d] = '-';
-            }
-          } else {
-            dailyStatus[d] = '0';
-          }
-        });
-
-        return {
-          sheetRowIndex: it.row,
-          ruangan: it.ruangan,
-          jenis: jenis,
-          kegiatan: it.kegiatan,
-          dailyStatus,
-          colMapping,
-          totalHariAktif,
-          selesaiCount
-        };
-      });
-
-      const ruanganSet = [...new Set(baseItems.map(it => it.ruangan))];
-
-      return {
-        namaPegawai: currentUser ? currentUser.namaPegawai : 'Slamet Riyadi',
-        jenis: jenis,
-        daysInMonth,
-        activeDays,
-        items,
-        daftarRuangan: ruanganSet
-      };
-    }
-
-    function getMockJadwalKeamanan() {
-      const DAYS_IN_SEPT = 30;
-      const HARI_SEQ = ['Sel','Ra','Ka','Ju','Sa','Mi','Sen','Sel','Ra','Ka','Ju','Sa','Mi','Sen',
-                         'Sel','Ra','Ka','Ju','Sa','Mi','Sen','Sel','Ra','Ka','Ju','Sa','Mi','Sen',
-                         'Sel','Ra'];
-      const SHIFT_SEQ = ['S','P','P','O','M','M','S','P','P','O','M','M','S','P','P','O','M','M',
-                          'S','P','P','O','M','M','S','P','P','O','M','M'];
-      const jadwal = Array.from({ length: DAYS_IN_SEPT }, (_, i) => ({
-        tanggal: i + 1,
-        hari: HARI_SEQ[i] || '',
-        kodeShift: SHIFT_SEQ[i] || 'O',
-        namaShift: { P:'Pagi', S:'Sore', M:'Malam', O:'Libur' }[SHIFT_SEQ[i]] || 'Libur',
-        isLibur: SHIFT_SEQ[i] === 'O'
-      }));
-
-      const summary = { P: 0, S: 0, M: 0, O: 0 };
-      jadwal.forEach(j => { if (j.kodeShift in summary) summary[j.kodeShift]++; });
-
-      const colMapping = {};
-      for (let d = 1; d <= 30; d++) colMapping[d] = d + 1;
-
-      const rawTasks = [
-        { row: 5,  ruangan: 'PAGI (06.00-07.30)', kegiatan: 'Mengatur lalu lintas dan mambantu menyeberangkan karyawan ke kantor' },
-        { row: 6,  ruangan: 'PAGI (06.00-07.30)', kegiatan: 'Mengatur mengarahkan parkiran kendaraan roda-4' },
-        { row: 7,  ruangan: 'PAGI (06.00-07.30)', kegiatan: 'Menyambut dan membukakan pintu kendaraan pimpinan' },
-        { row: 8,  ruangan: 'PAGI (06.00-07.30)', kegiatan: 'Merapikan susunan kendaraan roda 2 di parkiran samping dan belakang' },
-        { row: 11, ruangan: 'SELAMA JAM KERJA (07.30-16.00)', kegiatan: 'Menyiram tanaman dan bunga pada shift hari libur (pagi dan sore)' },
-        { row: 12, ruangan: 'SELAMA JAM KERJA (07.30-16.00)', kegiatan: 'Patroli keamanan gedung, aset dan karyawan kantor secara berkala setiap 2 jam dan memeriksa area kantor melalui CCTV' },
-        { row: 13, ruangan: 'SELAMA JAM KERJA (07.30-16.00)', kegiatan: 'Mengawasi keluar masuk orang, barang dan kendaraan, mendokumentasikan dan melaporkan hal-hal yang mencurigakan kepada pengawas dan ketua tim secara berjenjang' },
-        { row: 14, ruangan: 'SELAMA JAM KERJA (07.30-16.00)', kegiatan: 'Mengatur lalu lintas dan mambantu menyeberangkan tamu keluar dan masuk arah kantor' },
-        { row: 15, ruangan: 'SELAMA JAM KERJA (07.30-16.00)', kegiatan: 'Mengatur mengarahkan parkiran kendaraan roda-2 dan roda-4 tamu' },
-        { row: 16, ruangan: 'SELAMA JAM KERJA (07.30-16.00)', kegiatan: 'Menyambut dan membukakan pintu kendaraan roda-4 tamu yang datang' },
-        { row: 17, ruangan: 'SELAMA JAM KERJA (07.30-16.00)', kegiatan: 'Memeriksa identitas tamu dan memberikan kartu pengunjung (jika tersedia)' },
-        { row: 18, ruangan: 'SELAMA JAM KERJA (07.30-16.00)', kegiatan: 'Menyambut dan memberi informasi kepada tamu dan mengarahkan tamu ke front office/ ruang tunggu' },
-        { row: 19, ruangan: 'SELAMA JAM KERJA (07.30-16.00)', kegiatan: 'Merapikan susunan kendaraan roda 2 di parkiran samping dan belakang selepas jam istirahat pegawai (pukul 13.00)' },
-        { row: 22, ruangan: 'MALAM', kegiatan: 'Patroli keamanan gedung secara berkala dan memeriksa area kantor melalui CCTV' },
-        { row: 23, ruangan: 'MALAM', kegiatan: 'Memastikan pintu, jendela, dan ruangan penting terkunci dengan baik.' },
-        { row: 24, ruangan: 'MALAM', kegiatan: 'Mencegah potensi bahaya seperti kebakaran atau pencurian.' },
-        { row: 25, ruangan: 'MALAM', kegiatan: 'Menhadapi situasi darurat dan melapor kepada pengawas dan ketua tim secara berjenjang dan pada pihak berwajib jika terjadi gangguan' }
-      ];
-
-      const taskItems = rawTasks.map(t => {
-        const dailyStatus = {};
-        for (let d = 1; d <= 30; d++) dailyStatus[d] = (d <= 3) ? '1' : '0';
-        return {
-          sheetRowIndex: t.row,
-          ruangan: t.ruangan,
-          jenis: 'Keamanan',
-          kegiatan: t.kegiatan,
-          dailyStatus,
-          colMapping
-        };
-      });
-
-      return {
-        namaPegawai: currentUser ? currentUser.namaPegawai : 'Eddy Suryadi',
-        jadwal,
-        summary,
-        totalHariKerja: summary.P + summary.S + summary.M,
-        taskItems
-      };
-    }
-
-    function getMockRekapData() {
-      const { activeDays } = buildMockActiveDays();
-      const rekapHarian = activeDays.map(d => ({
-        hari: d,
-        total: 19,
-        selesai: d <= 5 ? Math.floor(Math.random() * 8) + 4 : 0
-      }));
-
-      return {
-        jenis: 'Kebersihan',
-        rekapHarian,
-        rekapRuangan: [
-          { ruangan: 'RUANG SEKRETARIS PIMPINAN',                  itemCount: 10, total: 10 * activeDays.length, selesai: 32 },
-          { ruangan: 'RUANG KEPALA',                               itemCount: 2,  total: 2 * activeDays.length,  selesai: 12 },
-          { ruangan: 'RUANG STATISTIK PRODUKSI',                   itemCount: 8,  total: 8 * activeDays.length,  selesai: 28 },
-          { ruangan: 'KORIDOR ATAS (R.VICON S/D R. PRODUKSI)',     itemCount: 6,  total: 6 * activeDays.length,  selesai: 22 },
-          { ruangan: 'WC PRIA LANTAI ATAS',                        itemCount: 5,  total: 5 * activeDays.length,  selesai: 16 }
-        ]
-      };
     }
   </script>
 </body>
